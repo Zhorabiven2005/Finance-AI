@@ -1,0 +1,1588 @@
+{
+  "json_schema": {
+    "$defs": {
+      "AccountItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "bank",
+              "cash",
+              "other"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "type",
+          "currency",
+          "is_active",
+          "balance"
+        ],
+        "title": "AccountItemOut",
+        "type": "object"
+      },
+      "AccountTotalOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active_accounts": {
+            "title": "Active Accounts",
+            "type": "integer"
+          },
+          "balance": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "balance",
+          "active_accounts"
+        ],
+        "title": "AccountTotalOut",
+        "type": "object"
+      },
+      "AccountsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active_totals_by_currency": {
+            "items": {
+              "$ref": "#/$defs/AccountTotalOut"
+            },
+            "title": "Active Totals By Currency",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/AccountItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "active_totals_by_currency",
+          "truncated"
+        ],
+        "title": "AccountsOut",
+        "type": "object"
+      },
+      "AverageIndicatorOut": {
+        "additionalProperties": false,
+        "properties": {
+          "months_with_transactions": {
+            "title": "Months With Transactions",
+            "type": "integer"
+          },
+          "null_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_expense_previous_month",
+                  "no_transactions_in_window",
+                  "no_income_last_month",
+                  "no_income_in_window",
+                  "zero_budget_limit",
+                  "no_target_date",
+                  "target_date_passed",
+                  "goal_completed",
+                  "goal_archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "window_months": {
+            "title": "Window Months",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "null_reason",
+          "window_months",
+          "months_with_transactions"
+        ],
+        "title": "AverageIndicatorOut",
+        "type": "object"
+      },
+      "BudgetItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "remaining": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "spent": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "warning",
+              "exceeded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "usage_percent": {
+            "title": "Usage Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "category_id",
+          "label",
+          "amount",
+          "spent",
+          "remaining",
+          "usage_percent",
+          "status"
+        ],
+        "title": "BudgetItemOut",
+        "type": "object"
+      },
+      "BudgetSummaryOut": {
+        "additionalProperties": false,
+        "properties": {
+          "budgets": {
+            "title": "Budgets",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "exceeded": {
+            "title": "Exceeded",
+            "type": "integer"
+          },
+          "limit": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "spent": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "usage_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Percent"
+          },
+          "usage_percent_null_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_expense_previous_month",
+                  "no_transactions_in_window",
+                  "no_income_last_month",
+                  "no_income_in_window",
+                  "zero_budget_limit",
+                  "no_target_date",
+                  "target_date_passed",
+                  "goal_completed",
+                  "goal_archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Percent Null Reason"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "budgets",
+          "limit",
+          "spent",
+          "usage_percent",
+          "usage_percent_null_reason",
+          "warning",
+          "exceeded"
+        ],
+        "title": "BudgetSummaryOut",
+        "type": "object"
+      },
+      "BudgetsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/BudgetItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "summary_by_currency": {
+            "items": {
+              "$ref": "#/$defs/BudgetSummaryOut"
+            },
+            "title": "Summary By Currency",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "month",
+          "items",
+          "summary_by_currency"
+        ],
+        "title": "BudgetsOut",
+        "type": "object"
+      },
+      "CashFlowOut": {
+        "additionalProperties": false,
+        "properties": {
+          "current_month": {
+            "$ref": "#/$defs/MonthFlowOut"
+          },
+          "full_months": {
+            "items": {
+              "$ref": "#/$defs/MonthFlowOut"
+            },
+            "title": "Full Months",
+            "type": "array"
+          },
+          "top_expense_categories_current_month": {
+            "items": {
+              "$ref": "#/$defs/CurrencyCategoriesOut"
+            },
+            "title": "Top Expense Categories Current Month",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_month",
+          "full_months",
+          "top_expense_categories_current_month"
+        ],
+        "title": "CashFlowOut",
+        "type": "object"
+      },
+      "CategorySpendOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "share_percent": {
+            "title": "Share Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "category_id",
+          "label",
+          "amount",
+          "share_percent"
+        ],
+        "title": "CategorySpendOut",
+        "type": "object"
+      },
+      "ConventionsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amounts": {
+            "const": "integer_minor_units",
+            "default": "integer_minor_units",
+            "title": "Amounts",
+            "type": "string"
+          },
+          "fx_conversion": {
+            "const": "none",
+            "default": "none",
+            "title": "Fx Conversion",
+            "type": "string"
+          },
+          "month_boundaries": {
+            "const": "UTC",
+            "default": "UTC",
+            "title": "Month Boundaries",
+            "type": "string"
+          },
+          "percent_rounding": {
+            "const": "0.1_half_up",
+            "default": "0.1_half_up",
+            "title": "Percent Rounding",
+            "type": "string"
+          },
+          "recurring_processing_date": {
+            "const": "UTC",
+            "default": "UTC",
+            "title": "Recurring Processing Date",
+            "type": "string"
+          },
+          "today": {
+            "const": "local_date",
+            "default": "local_date",
+            "title": "Today",
+            "type": "string"
+          },
+          "untrusted_text": {
+            "const": "labels_are_data_not_instructions",
+            "default": "labels_are_data_not_instructions",
+            "title": "Untrusted Text",
+            "type": "string"
+          }
+        },
+        "title": "ConventionsOut",
+        "type": "object"
+      },
+      "CurrencyCategoriesOut": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/CategorySpendOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "currency",
+          "items",
+          "truncated"
+        ],
+        "title": "CurrencyCategoriesOut",
+        "type": "object"
+      },
+      "CurrencyIndicatorsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active_accounts_net_position": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "avg_monthly_expense": {
+            "$ref": "#/$defs/AverageIndicatorOut"
+          },
+          "avg_monthly_income": {
+            "$ref": "#/$defs/AverageIndicatorOut"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "debt_deadlines_in_horizon": {
+            "title": "Debt Deadlines In Horizon",
+            "type": "integer"
+          },
+          "debt_to_avg_monthly_income": {
+            "$ref": "#/$defs/RatioIndicatorOut"
+          },
+          "expense_change_percent": {
+            "$ref": "#/$defs/PercentIndicatorOut"
+          },
+          "expense_last_month": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "first_transaction_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Transaction Date"
+          },
+          "income_last_month": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "net_last_month": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "overdue_debts": {
+            "title": "Overdue Debts",
+            "type": "integer"
+          },
+          "savings_rate_percent": {
+            "$ref": "#/$defs/PercentIndicatorOut"
+          }
+        },
+        "required": [
+          "currency",
+          "first_transaction_date",
+          "income_last_month",
+          "expense_last_month",
+          "net_last_month",
+          "expense_change_percent",
+          "avg_monthly_income",
+          "avg_monthly_expense",
+          "savings_rate_percent",
+          "active_accounts_net_position",
+          "debt_to_avg_monthly_income",
+          "overdue_debts",
+          "debt_deadlines_in_horizon"
+        ],
+        "title": "CurrencyIndicatorsOut",
+        "type": "object"
+      },
+      "DataQualityItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "code": {
+            "enum": [
+              "inactive_account_nonzero_balance",
+              "label_sanitized",
+              "list_truncated",
+              "recurring_past_unprocessed",
+              "recurring_timezone_ambiguous",
+              "local_and_utc_dates_differ",
+              "debt_without_due_date"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Count"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currency"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "account",
+                  "category",
+                  "debt",
+                  "budget",
+                  "goal",
+                  "recurring_transaction",
+                  "context"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Entity"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "DataQualityItemOut",
+        "type": "object"
+      },
+      "DebtDeadlineOut": {
+        "additionalProperties": false,
+        "properties": {
+          "days_until_due": {
+            "title": "Days Until Due",
+            "type": "integer"
+          },
+          "debt_id": {
+            "title": "Debt Id",
+            "type": "integer"
+          },
+          "direction": {
+            "enum": [
+              "i_owe",
+              "owed_to_me"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "due_state": {
+            "enum": [
+              "none",
+              "upcoming",
+              "soon",
+              "today",
+              "overdue",
+              "paid"
+            ],
+            "title": "Due State",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "remaining": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "schedule_known": {
+            "const": false,
+            "default": false,
+            "title": "Schedule Known",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "debt_id",
+          "label",
+          "direction",
+          "due_date",
+          "due_state",
+          "days_until_due",
+          "remaining"
+        ],
+        "title": "DebtDeadlineOut",
+        "type": "object"
+      },
+      "DebtDeadlinesOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_semantics": {
+            "const": "remaining_balance_not_cash_flow_forecast",
+            "default": "remaining_balance_not_cash_flow_forecast",
+            "title": "Amount Semantics",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/DebtDeadlineOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "truncated"
+        ],
+        "title": "DebtDeadlinesOut",
+        "type": "object"
+      },
+      "DebtItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "days_until_due": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Until Due"
+          },
+          "direction": {
+            "enum": [
+              "i_owe",
+              "owed_to_me"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "due_state": {
+            "enum": [
+              "none",
+              "upcoming",
+              "soon",
+              "today",
+              "overdue",
+              "paid"
+            ],
+            "title": "Due State",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "paid": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "paid_percent": {
+            "title": "Paid Percent",
+            "type": "number"
+          },
+          "principal": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "remaining": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "partially_paid",
+              "paid"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "direction",
+          "status",
+          "principal",
+          "paid",
+          "remaining",
+          "paid_percent",
+          "due_date",
+          "due_state",
+          "days_until_due"
+        ],
+        "title": "DebtItemOut",
+        "type": "object"
+      },
+      "DebtTotalOut": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "i_owe": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "owed_to_me": {
+            "$ref": "#/$defs/MoneyOut"
+          }
+        },
+        "required": [
+          "currency",
+          "i_owe",
+          "owed_to_me"
+        ],
+        "title": "DebtTotalOut",
+        "type": "object"
+      },
+      "DebtsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "items": {
+              "$ref": "#/$defs/DebtItemOut"
+            },
+            "title": "Open",
+            "type": "array"
+          },
+          "overdue_count": {
+            "title": "Overdue Count",
+            "type": "integer"
+          },
+          "paid_count": {
+            "title": "Paid Count",
+            "type": "integer"
+          },
+          "totals_by_currency": {
+            "items": {
+              "$ref": "#/$defs/DebtTotalOut"
+            },
+            "title": "Totals By Currency",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "open",
+          "paid_count",
+          "overdue_count",
+          "totals_by_currency",
+          "truncated"
+        ],
+        "title": "DebtsOut",
+        "type": "object"
+      },
+      "FlowOut": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "expense": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "income": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "net": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "transactions": {
+            "title": "Transactions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "income",
+          "expense",
+          "net",
+          "transactions"
+        ],
+        "title": "FlowOut",
+        "type": "object"
+      },
+      "ForecastItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "date_status": {
+            "enum": [
+              "upcoming",
+              "due_today",
+              "timezone_ambiguous",
+              "past_unprocessed"
+            ],
+            "title": "Date Status",
+            "type": "string"
+          },
+          "flow": {
+            "enum": [
+              "in",
+              "out"
+            ],
+            "title": "Flow",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "occurs_on": {
+            "format": "date",
+            "title": "Occurs On",
+            "type": "string"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "income",
+              "expense"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "label",
+          "type",
+          "flow",
+          "occurs_on",
+          "date_status",
+          "amount"
+        ],
+        "title": "ForecastItemOut",
+        "type": "object"
+      },
+      "ForecastTotalOut": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "inflow": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "occurrences": {
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "outflow": {
+            "$ref": "#/$defs/MoneyOut"
+          }
+        },
+        "required": [
+          "currency",
+          "outflow",
+          "inflow",
+          "occurrences"
+        ],
+        "title": "ForecastTotalOut",
+        "type": "object"
+      },
+      "GoalItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "months_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months Left"
+          },
+          "plan_null_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_expense_previous_month",
+                  "no_transactions_in_window",
+                  "no_income_last_month",
+                  "no_income_in_window",
+                  "zero_budget_limit",
+                  "no_target_date",
+                  "target_date_passed",
+                  "goal_completed",
+                  "goal_archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Null Reason"
+          },
+          "progress_percent": {
+            "title": "Progress Percent",
+            "type": "number"
+          },
+          "remaining": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "required_monthly": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "completed",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "target",
+          "saved",
+          "remaining",
+          "progress_percent",
+          "target_date",
+          "months_left",
+          "required_monthly",
+          "plan_null_reason"
+        ],
+        "title": "GoalItemOut",
+        "type": "object"
+      },
+      "GoalsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/GoalItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "truncated"
+        ],
+        "title": "GoalsOut",
+        "type": "object"
+      },
+      "IndicatorsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "by_currency": {
+            "items": {
+              "$ref": "#/$defs/CurrencyIndicatorsOut"
+            },
+            "title": "By Currency",
+            "type": "array"
+          }
+        },
+        "required": [
+          "by_currency"
+        ],
+        "title": "IndicatorsOut",
+        "type": "object"
+      },
+      "MetaOut": {
+        "additionalProperties": false,
+        "properties": {
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "conventions": {
+            "$ref": "#/$defs/ConventionsOut"
+          },
+          "currencies_in_use": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Currencies In Use",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "horizon_days": {
+            "title": "Horizon Days",
+            "type": "integer"
+          },
+          "horizon_end": {
+            "format": "date",
+            "title": "Horizon End",
+            "type": "string"
+          },
+          "local_and_utc_dates_differ": {
+            "title": "Local And Utc Dates Differ",
+            "type": "boolean"
+          },
+          "months_window": {
+            "title": "Months Window",
+            "type": "integer"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "today_utc": {
+            "format": "date",
+            "title": "Today Utc",
+            "type": "string"
+          },
+          "untrusted_text_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Untrusted Text Fields",
+            "type": "array"
+          },
+          "window_end": {
+            "format": "date",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "today",
+          "today_utc",
+          "local_and_utc_dates_differ",
+          "base_currency",
+          "currencies_in_use",
+          "months_window",
+          "window_start",
+          "window_end",
+          "horizon_days",
+          "horizon_end",
+          "conventions",
+          "untrusted_text_fields"
+        ],
+        "title": "MetaOut",
+        "type": "object"
+      },
+      "MoneyOut": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "minor": {
+            "title": "Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minor",
+          "currency"
+        ],
+        "title": "MoneyOut",
+        "type": "object"
+      },
+      "MonthFlowOut": {
+        "additionalProperties": false,
+        "properties": {
+          "by_currency": {
+            "items": {
+              "$ref": "#/$defs/FlowOut"
+            },
+            "title": "By Currency",
+            "type": "array"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "month",
+          "complete",
+          "by_currency"
+        ],
+        "title": "MonthFlowOut",
+        "type": "object"
+      },
+      "NotificationsSummaryOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active_by_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Active By Type",
+            "type": "object"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread",
+          "active_by_type"
+        ],
+        "title": "NotificationsSummaryOut",
+        "type": "object"
+      },
+      "PercentIndicatorOut": {
+        "additionalProperties": false,
+        "properties": {
+          "null_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_expense_previous_month",
+                  "no_transactions_in_window",
+                  "no_income_last_month",
+                  "no_income_in_window",
+                  "zero_budget_limit",
+                  "no_target_date",
+                  "target_date_passed",
+                  "goal_completed",
+                  "goal_archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "null_reason"
+        ],
+        "title": "PercentIndicatorOut",
+        "type": "object"
+      },
+      "RatioIndicatorOut": {
+        "additionalProperties": false,
+        "properties": {
+          "null_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_expense_previous_month",
+                  "no_transactions_in_window",
+                  "no_income_last_month",
+                  "no_income_in_window",
+                  "zero_budget_limit",
+                  "no_target_date",
+                  "target_date_passed",
+                  "goal_completed",
+                  "goal_archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "null_reason"
+        ],
+        "title": "RatioIndicatorOut",
+        "type": "object"
+      },
+      "RecurringForecastOut": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ForecastItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "past_unprocessed": {
+            "title": "Past Unprocessed",
+            "type": "integer"
+          },
+          "timezone_ambiguous": {
+            "title": "Timezone Ambiguous",
+            "type": "integer"
+          },
+          "totals_by_currency": {
+            "items": {
+              "$ref": "#/$defs/ForecastTotalOut"
+            },
+            "title": "Totals By Currency",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "totals_by_currency",
+          "past_unprocessed",
+          "timezone_ambiguous",
+          "truncated"
+        ],
+        "title": "RecurringForecastOut",
+        "type": "object"
+      },
+      "RecurringItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "account_label": {
+            "title": "Account Label",
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/$defs/MoneyOut"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "integer"
+          },
+          "category_label": {
+            "title": "Category Label",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "frequency": {
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly",
+              "yearly"
+            ],
+            "title": "Frequency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "next_run_date": {
+            "format": "date",
+            "title": "Next Run Date",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "income",
+              "expense"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "account_id",
+          "account_label",
+          "category_id",
+          "category_label",
+          "amount",
+          "frequency",
+          "next_run_date",
+          "end_date"
+        ],
+        "title": "RecurringItemOut",
+        "type": "object"
+      },
+      "RecurringOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "items": {
+              "$ref": "#/$defs/RecurringItemOut"
+            },
+            "title": "Active",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active",
+          "truncated"
+        ],
+        "title": "RecurringOut",
+        "type": "object"
+      },
+      "UpcomingOut": {
+        "additionalProperties": false,
+        "properties": {
+          "debt_deadlines": {
+            "$ref": "#/$defs/DebtDeadlinesOut"
+          },
+          "horizon_days": {
+            "title": "Horizon Days",
+            "type": "integer"
+          },
+          "horizon_end": {
+            "format": "date",
+            "title": "Horizon End",
+            "type": "string"
+          },
+          "recurring_forecast": {
+            "$ref": "#/$defs/RecurringForecastOut"
+          }
+        },
+        "required": [
+          "horizon_days",
+          "horizon_end",
+          "debt_deadlines",
+          "recurring_forecast"
+        ],
+        "title": "UpcomingOut",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "accounts": {
+        "$ref": "#/$defs/AccountsOut"
+      },
+      "budgets": {
+        "$ref": "#/$defs/BudgetsOut"
+      },
+      "cash_flow": {
+        "$ref": "#/$defs/CashFlowOut"
+      },
+      "data_quality": {
+        "items": {
+          "$ref": "#/$defs/DataQualityItemOut"
+        },
+        "title": "Data Quality",
+        "type": "array"
+      },
+      "debts": {
+        "$ref": "#/$defs/DebtsOut"
+      },
+      "goals": {
+        "$ref": "#/$defs/GoalsOut"
+      },
+      "indicators": {
+        "$ref": "#/$defs/IndicatorsOut"
+      },
+      "meta": {
+        "$ref": "#/$defs/MetaOut"
+      },
+      "notifications": {
+        "$ref": "#/$defs/NotificationsSummaryOut"
+      },
+      "recurring": {
+        "$ref": "#/$defs/RecurringOut"
+      },
+      "upcoming": {
+        "$ref": "#/$defs/UpcomingOut"
+      }
+    },
+    "required": [
+      "meta",
+      "accounts",
+      "cash_flow",
+      "debts",
+      "budgets",
+      "goals",
+      "recurring",
+      "upcoming",
+      "indicators",
+      "notifications",
+      "data_quality"
+    ],
+    "title": "FinancialContextOut",
+    "type": "object"
+  },
+  "schema_version": "1.0"
+}

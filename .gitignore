@@ -1,0 +1,25 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- секреты и данные пользователя ---
+.env
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# --- Node ---
+node_modules/
+dist/
+.vite/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
