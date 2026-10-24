@@ -17,6 +17,7 @@ backend/data/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # --- IDE / OS ---
 .vscode/
