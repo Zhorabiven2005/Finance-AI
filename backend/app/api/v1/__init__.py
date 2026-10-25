@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     accounts,
     analytics,
+    assistant,
     budgets,
     categories,
     context,
@@ -36,5 +37,6 @@ api_router.include_router(goals.router)
 api_router.include_router(data_transfer.router)
 api_router.include_router(notifications.router)
 api_router.include_router(context.router)
+api_router.include_router(assistant.router)
 
 __all__ = ["api_router"]

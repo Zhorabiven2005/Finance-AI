@@ -45,11 +45,25 @@ class Settings(BaseSettings):
     # и вручную.
     notifications_check_interval_minutes: int = Field(default=60, ge=0, le=24 * 60)
 
-    # --- AI (используется начиная с этапа 6) --------------------------
+    # --- AI: устаревшая заготовка этапа 0 ------------------------------
+    # Облачный провайдер не используется и не поддерживается: помощник
+    # работает только с локальной моделью (настройки assistant_* ниже).
+    # Поля оставлены, чтобы не ломать существующий backend/.env и /health.
     ai_provider: str = "anthropic"
     ai_model: str = "claude-sonnet-5"
     ai_enabled: bool = False
     anthropic_api_key: str | None = Field(default=None, repr=False)
+
+    # --- локальный AI-помощник (Stage 3) ----------------------------------
+    # Только локальный сервер Ollama: адрес обязан быть loopback (127.0.0.0/8,
+    # ::1, localhost), иначе финансовые данные могли бы уйти с компьютера.
+    # Ключей и облачных провайдеров нет.
+    assistant_enabled: bool = True
+    assistant_ollama_url: str = "http://127.0.0.1:11434"
+    assistant_model: str = "qwen3.5:4b-q4_K_M"
+    assistant_status_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    # Бюджет текстовой сводки для промпта (оценка: ~3 символа на токен).
+    assistant_digest_token_budget: int = Field(default=2500, ge=500, le=16000)
 
     # --- CORS ---------------------------------------------------------
     # Хранится строкой: pydantic-settings пытается разобрать list как JSON,
@@ -65,6 +79,20 @@ class Settings(BaseSettings):
         from app.engine.money import get_currency
 
         return get_currency(v).code
+
+    @field_validator("assistant_ollama_url")
+    @classmethod
+    def _validate_ollama_url(cls, v: str) -> str:
+        from app.assistant.locality import normalize_local_url
+
+        return normalize_local_url(v)
+
+    @field_validator("assistant_model")
+    @classmethod
+    def _validate_assistant_model(cls, v: str) -> str:
+        from app.assistant.locality import validate_local_model_name
+
+        return validate_local_model_name(v)
 
     @property
     def cors_origins(self) -> list[str]:
