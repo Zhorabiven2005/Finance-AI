@@ -540,6 +540,9 @@ class TestBackupCompatibility:
         v1 = json.loads(exported)
         v1["version"] = 1
         v1["data"].pop("notifications")
+        for t in v1["data"]["transactions"]:  # поля назначения появились в version 3
+            for key in ("purpose", "purpose_account_id", "purpose_debt_id"):
+                t.pop(key, None)
         assert c.post("/api/v1/import/backup/restore?confirm=true", content=json.dumps(v1)).status_code == 200
         after_v1 = ctx(c)
         for doc in (before, after, after_v1):

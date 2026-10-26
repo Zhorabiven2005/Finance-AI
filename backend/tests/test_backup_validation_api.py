@@ -70,7 +70,7 @@ def test_not_a_finance_ai_backup(seeded_client, payload):
     assert "не является резервной копией Finance AI" in invalid(seeded_client, payload)[0]
 
 
-@pytest.mark.parametrize("version", [3, 0, "2", None, True])
+@pytest.mark.parametrize("version", [4, 0, "2", None, True])
 def test_unsupported_version(seeded_client, backup, version):
     doc = mutate(backup, lambda d: d.__setitem__("version", version))
     assert "версия резервной копии не поддерживается" in invalid(seeded_client, doc)[0]

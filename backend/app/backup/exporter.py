@@ -34,7 +34,19 @@ EXPORT_COLUMNS: dict[str, tuple[type, tuple[str, ...]]] = {
     "categories": (Category, ("name", "type", "icon", "parent_id", "is_default", "is_archived")),
     "transactions": (
         Transaction,
-        ("account_id", "category_id", "type", "amount_minor", "currency", "occurred_at", "comment", "debt_payment_id"),
+        (
+            "account_id",
+            "category_id",
+            "type",
+            "amount_minor",
+            "currency",
+            "occurred_at",
+            "comment",
+            "debt_payment_id",
+            "purpose",
+            "purpose_account_id",
+            "purpose_debt_id",
+        ),
     ),
     "transfers": (
         Transfer,

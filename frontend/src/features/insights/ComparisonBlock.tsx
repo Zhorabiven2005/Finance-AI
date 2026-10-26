@@ -188,6 +188,14 @@ function CurrencyBlock({
               {formatMoney(item.transfers_excluded.current_total)}, было {item.transfers_excluded.previous_count} на{" "}
               {formatMoney(item.transfers_excluded.previous_total)}.
             </p>
+            {((item.transfers_excluded.marked_current_count ?? 0) > 0 || (item.transfers_excluded.marked_previous_count ?? 0) > 0) && (
+              <p data-testid="marked-transfers">
+                Отмечены вами как переводы: сейчас {item.transfers_excluded.marked_current_count ?? 0}
+                {item.transfers_excluded.marked_current_total ? ` на ${formatMoney(item.transfers_excluded.marked_current_total)}` : ""},
+                было {item.transfers_excluded.marked_previous_count ?? 0}
+                {item.transfers_excluded.marked_previous_total ? ` на ${formatMoney(item.transfers_excluded.marked_previous_total)}` : ""}.
+              </p>
+            )}
             {item.possible_internal_pairs.count > 0 && (
               <p>
                 Возможные переводы, записанные как доход и расход: {item.possible_internal_pairs.count} на{" "}

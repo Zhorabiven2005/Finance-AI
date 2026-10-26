@@ -40,12 +40,15 @@ def as_v1(doc):
     v1 = copy.deepcopy(doc)
     v1["version"] = 1
     v1["data"].pop("notifications")
+    for t in v1["data"]["transactions"]:  # полей назначения (version 3) в v1 не было
+        for key in ("purpose", "purpose_account_id", "purpose_debt_id"):
+            t.pop(key, None)
     return v1
 
 
 def test_export_is_version_2_with_notifications(with_notifications):
     doc = with_notifications
-    assert doc["version"] == BACKUP_FORMAT_VERSION == 2
+    assert doc["version"] == BACKUP_FORMAT_VERSION == 3  # version 3 (Stage 3F) сохраняет уведомления
     notes = doc["data"]["notifications"]
     # Два долга со сроками + регулярная операция из populate(), чья дата
     # (10.10) уже прошла и она не проведена.
@@ -87,7 +90,7 @@ def test_v1_backup_still_restores(client, with_notifications):
     r = restore_backup(client, v1)
     assert r.status_code == 200, r.text
     restored = export_backup(client)
-    assert restored["version"] == 2
+    assert restored["version"] == BACKUP_FORMAT_VERSION
     expected = comparable(with_notifications)
     expected["data"]["notifications"] = []
     assert comparable(restored) == expected
@@ -109,7 +112,7 @@ def test_v2_document_without_notifications_section_is_rejected(client, with_noti
     assert any("notifications" in e for e in errors)
 
 
-@pytest.mark.parametrize("version", [3, 99])
+@pytest.mark.parametrize("version", [4, 99])
 def test_unknown_version_rejected(client, with_notifications, version):
     doc = dict(with_notifications, version=version)
     errors = preview_backup(client, doc).json()["errors"]

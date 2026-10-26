@@ -33,6 +33,7 @@ from app.engine.analytics import (
     previous_period,
     share_percent,
 )
+from app.engine.flows import is_transfer
 from app.engine.money import Currency, Money, get_currency, money_sum
 from app.schemas.analytics import (
     AnalyticsOut,
@@ -58,15 +59,17 @@ def _to_percent(value: Decimal | None) -> float | None:
 def _period_transactions(
     db: Session, currency: str, date_from: datetime, date_to: datetime
 ) -> list[Transaction]:
-    return list(
-        db.scalars(
-            select(Transaction).where(
-                Transaction.currency == currency,
-                Transaction.occurred_at >= date_from,
-                Transaction.occurred_at <= date_to,
-            )
+    """Операции периода, кроме отмеченных пользователем переводов (Stage 3F,
+    app/engine/flows.py): переводы — не доходы и не расходы. Погашения долгов
+    остаются в расходах, как и раньше: аналитика показывает все расходы."""
+    rows = db.scalars(
+        select(Transaction).where(
+            Transaction.currency == currency,
+            Transaction.occurred_at >= date_from,
+            Transaction.occurred_at <= date_to,
         )
     )
+    return [t for t in rows if not is_transfer(t)]
 
 
 def _totals(transactions: list[Transaction], currency: Currency) -> tuple[Money, Money]:

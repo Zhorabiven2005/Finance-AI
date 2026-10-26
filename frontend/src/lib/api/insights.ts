@@ -94,6 +94,11 @@ export interface CurrencyComparison {
     current_total: MoneyAmount;
     previous_count: number;
     previous_total: MoneyAmount;
+    /** Операции, которые пользователь сам отметил как переводы (Stage 3F). */
+    marked_current_count?: number;
+    marked_current_total?: MoneyAmount | null;
+    marked_previous_count?: number;
+    marked_previous_total?: MoneyAmount | null;
   };
   possible_internal_pairs: { count: number; total: MoneyAmount };
   summary: string;

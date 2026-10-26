@@ -19,6 +19,7 @@ from app.db.models import Account, Category, Debt, Transaction
 from app.db.models.app_settings import get_base_currency
 from app.db.session import get_db
 from app.engine.dashboard import net_worth as compute_net_worth
+from app.engine.flows import is_transfer
 from app.engine.money import Money, get_currency, money_sum
 from app.schemas.dashboard import (
     CategorySpendingOut,
@@ -134,7 +135,8 @@ def get_dashboard(db: Session = Depends(get_db)) -> DashboardOut:
         )
     )
     by_category: dict[int, list[Money]] = {}
-    for tx in month_expenses:
+    # Отмеченные переводы — не расходы (Stage 3F, app/engine/flows.py).
+    for tx in (t for t in month_expenses if not is_transfer(t)):
         by_category.setdefault(tx.category_id, []).append(
             Money.of(tx.amount_minor, tx.currency)
         )

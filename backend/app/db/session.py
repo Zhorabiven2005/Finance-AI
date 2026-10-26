@@ -56,6 +56,14 @@ def _configure_sqlite(dbapi_connection, _record) -> None:
     cursor.close()
 
 
+@event.listens_for(engine, "checkin")
+def _reset_query_only(dbapi_connection, _record) -> None:
+    """Запасная линия к app/db/readonly.py: соединение, возвращаемое в пул,
+    всегда снова доступно для записи."""
+    if dbapi_connection is not None:
+        dbapi_connection.execute("PRAGMA query_only = OFF")
+
+
 SessionLocal = sessionmaker(
     bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
 )

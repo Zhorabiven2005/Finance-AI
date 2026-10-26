@@ -4,6 +4,7 @@ import { ArrowLeftRight, ArrowUpDown, HandCoins, Search, X } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom";
 
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, EmptyState, LoadError } from "@/components/ui/Card";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -26,6 +27,7 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 import { parseTransactionId, SelectedTransactionCard } from "./SelectedTransactionCard";
 import { TransactionFormModal } from "./TransactionFormModal";
+import { PURPOSE_EFFECT, PURPOSE_LABEL, TransactionPurposeModal } from "./TransactionPurposeModal";
 import { TransferFormModal } from "./TransferFormModal";
 
 const PAGE_SIZE = 20;
@@ -109,6 +111,8 @@ export function TransactionsPage() {
   const [formType, setFormType] = useState<TransactionType | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  // Операция, для которой открыт выбор назначения (Stage 3F).
+  const [classifying, setClassifying] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<PendingDelete | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -212,6 +216,10 @@ export function TransactionsPage() {
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
     queryClient.invalidateQueries({ queryKey: ["budgets"] });
+    // Назначение и правки операций меняют инсайты, сравнение и предупреждения.
+    queryClient.invalidateQueries({ queryKey: ["insights"] });
+    queryClient.invalidateQueries({ queryKey: ["insights-warnings"] });
+    queryClient.invalidateQueries({ queryKey: ["context"] });
   };
 
   const remove = useMutation({
@@ -299,6 +307,7 @@ export function TransactionsPage() {
           accountName={accountName}
           categoryOf={categoryOf}
           onEdit={openEdit}
+          onClassify={setClassifying}
           onDelete={(tx) => askDelete({ kind: "transaction", item: tx })}
           onClose={closeSelected}
         />
@@ -469,6 +478,12 @@ export function TransactionsPage() {
                       {tx.debt_name && <>Долг: {tx.debt_name} · </>}
                       {formatDateTime(tx.occurred_at)}
                     </p>
+                    {tx.purpose && (
+                      <p className="mt-1" data-testid="purpose-badge">
+                        <Badge tone="neutral">{PURPOSE_LABEL[tx.purpose]}</Badge>
+                        <span className="ml-2 text-xs text-ink-400">{PURPOSE_EFFECT[tx.purpose]}</span>
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`tabular text-[15px] font-semibold ${tx.type === "income" ? "text-success" : "text-ink-900"}`}
@@ -486,7 +501,10 @@ export function TransactionsPage() {
                       Платёж в «Долгах» →
                     </Link>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setClassifying(tx)}>
+                        Назначение
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -603,6 +621,15 @@ export function TransactionsPage() {
             setEditing(null);
             invalidate();
           }}
+        />
+      )}
+      {classifying && (
+        <TransactionPurposeModal
+          tx={classifying}
+          accounts={accounts ?? []}
+          accountName={accountName}
+          onClose={() => setClassifying(null)}
+          onSaved={invalidate}
         />
       )}
       {transferOpen && (

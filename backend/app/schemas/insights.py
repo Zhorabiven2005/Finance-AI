@@ -137,6 +137,11 @@ class TransfersExcludedOut(ApiModel):
     current_total: MoneyOut
     previous_count: int
     previous_total: MoneyOut
+    # Операции, которые пользователь сам отметил как переводы (Stage 3F).
+    marked_current_count: int = 0
+    marked_current_total: MoneyOut | None = None
+    marked_previous_count: int = 0
+    marked_previous_total: MoneyOut | None = None
 
 
 class PossibleInternalPairsOut(ApiModel):

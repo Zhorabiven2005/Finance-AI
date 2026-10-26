@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import Account, Category, Debt, DebtPayment, Transaction
@@ -143,6 +143,9 @@ def update_debt(debt_id: int, payload: DebtUpdate, db: Session = Depends(get_db)
 def delete_debt(debt_id: int, db: Session = Depends(get_db)) -> None:
     # Платежи и их связанные операции удаляются каскадом (ORM + ON DELETE).
     debt = get_debt_or_404(db, debt_id)
+    # Операции, вручную отмеченные погашением этого долга, остаются, но
+    # ссылка на удалённый долг снимается (назначение «погашение» сохраняется).
+    db.execute(update(Transaction).where(Transaction.purpose_debt_id == debt.id).values(purpose_debt_id=None))
     db.delete(debt)
     db.commit()
 

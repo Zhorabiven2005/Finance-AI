@@ -35,6 +35,7 @@ from app.db.models import Category, Transaction, Transfer
 from app.engine import comparison as cmp
 from app.engine import insights as rules
 from app.engine.analytics import share_percent
+from app.engine.flows import debt_repayment_category_ids, flow_kind, is_transfer
 from app.engine.money import Money, money_sum
 from app.schemas.insights import (
     CategoryChangeOut,
@@ -55,7 +56,6 @@ TOP_CHANGES = 3
 MAX_CATEGORY_ROWS = 12
 HISTORY_WINDOW_DAYS = 183  # как у крупных расходов Stage 3C
 OTHER_SHARE_WARNING = 25
-DEBT_REPAYMENT_CATEGORY = "Погашение долга"  # категория журнала долгов (api/v1/debts.py)
 OTHER_EXPENSE_CATEGORY = "Прочие расходы"
 
 
@@ -148,6 +148,10 @@ def build_comparison(db: Session, *, period_key: InsightPeriodKey, today: date) 
     first = db.scalar(select(func.min(Transaction.occurred_at)))
     first_day = first.astimezone(timezone.utc).date() if first is not None else None
 
+    # Отмеченные пользователем переводы (Stage 3F) — не доходы и не расходы ни
+    # в одном из периодов; показываются отдельной строкой.
+    marked = [t for t in txs if is_transfer(t)]
+    txs = [t for t in txs if not is_transfer(t)]
     cur_txs = [t for t in txs if _in(t, cur_w)]
     prev_txs = [t for t in txs if _in(t, prev_w)]
     out = PeriodComparisonOut(
@@ -159,7 +163,7 @@ def build_comparison(db: Session, *, period_key: InsightPeriodKey, today: date) 
         by_currency=[],
         unavailable_reason=None,
     )
-    if not cur_txs and not prev_txs:
+    if not cur_txs and not prev_txs and not any(_in(t, cur_w) or _in(t, prev_w) for t in marked):
         out.unavailable_reason = "Ни в одном из двух периодов нет операций — сравнивать нечего."
         return out
 
@@ -178,10 +182,10 @@ def build_comparison(db: Session, *, period_key: InsightPeriodKey, today: date) 
         if first_day is not None and first_day > cur_w.first:
             history_warning += f" Текущий период ({cur_label}) тоже покрыт данными только с {_d(first_day)}."
 
-    debt_category_ids = {cid for cid, c in categories.items() if c.type == "expense" and c.name == DEBT_REPAYMENT_CATEGORY}
+    debt_category_ids = set(debt_repayment_category_ids(categories.values()))
     other_ids = {cid for cid, c in categories.items() if c.is_default and c.type == "expense" and c.name == OTHER_EXPENSE_CATEGORY}
 
-    for cur in sorted({t.currency for t in cur_txs + prev_txs}):
+    for cur in sorted({t.currency for t in cur_txs + prev_txs + [m for m in marked if _in(m, cur_w) or _in(m, prev_w)]}):
         out.by_currency.append(
             _currency_comparison(
                 cur,
@@ -189,6 +193,7 @@ def build_comparison(db: Session, *, period_key: InsightPeriodKey, today: date) 
                 [t for t in prev_txs if t.currency == cur],
                 [t for t in txs if t.currency == cur and t.type == "expense"],
                 [tr for tr in transfers if tr.currency == cur],
+                [t for t in marked if t.currency == cur],
                 windows,
                 cur_label,
                 prev_label,
@@ -215,6 +220,7 @@ def _currency_comparison(
     prev_txs: list[Transaction],
     baseline_expenses: list[Transaction],
     transfers: list[Transfer],
+    marked: list[Transaction],
     windows: cmp.ComparisonWindows,
     cur_label: str,
     prev_label: str,
@@ -227,7 +233,7 @@ def _currency_comparison(
     def change(c: Money, p: Money) -> cmp.Change:
         return cmp.change(c, p, history_ok=history_ok)
 
-    is_debt = lambda t: t.debt_payment_id is not None or t.category_id in debt_category_ids  # noqa: E731
+    is_debt = lambda t: flow_kind(t, debt_category_ids) == "debt_repayment"  # noqa: E731 — единое правило
     income = change(_sum(cur_txs, cur, "income"), _sum(prev_txs, cur, "income"))
     expense = change(_sum(cur_txs, cur, "expense"), _sum(prev_txs, cur, "expense"))
     net = change(income.current - expense.current, income.previous - expense.previous)
@@ -292,11 +298,17 @@ def _currency_comparison(
     # --- переводы и возможные непроведённые переводы ---
     tr_cur = [tr for tr in transfers if _in(tr, windows.current)]
     tr_prev = [tr for tr in transfers if _in(tr, windows.previous)]
+    marked_cur = [t for t in marked if _in(t, windows.current)]
+    marked_prev = [t for t in marked if _in(t, windows.previous)]
     transfers_out = TransfersExcludedOut(
         current_count=len(tr_cur),
         current_total=_out(_sum(tr_cur, cur)),
         previous_count=len(tr_prev),
         previous_total=_out(_sum(tr_prev, cur)),
+        marked_current_count=len(marked_cur),
+        marked_current_total=_out(_sum(marked_cur, cur)),
+        marked_previous_count=len(marked_prev),
+        marked_previous_total=_out(_sum(marked_prev, cur)),
     )
     pairs = []
     for group in (cur_txs, prev_txs):

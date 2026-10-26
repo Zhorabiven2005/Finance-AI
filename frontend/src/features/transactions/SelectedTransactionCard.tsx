@@ -12,6 +12,8 @@ import { transactionsApi, type Transaction } from "@/lib/api/transactions";
 import { CategoryIcon } from "@/lib/categoryIcons";
 import { formatMoney } from "@/lib/money";
 
+import { PURPOSE_EFFECT, PURPOSE_LABEL } from "./TransactionPurposeModal";
+
 /** id операции из ?tx=…: только положительное целое, иначе null —
  * некорректная ссылка не должна приводить к запросу «какой-нибудь» записи. */
 export function parseTransactionId(raw: string | null): number | null {
@@ -57,6 +59,7 @@ export function SelectedTransactionCard({
   accountName,
   categoryOf,
   onEdit,
+  onClassify,
   onDelete,
   onClose,
 }: {
@@ -64,6 +67,7 @@ export function SelectedTransactionCard({
   accountName: (id: number) => string;
   categoryOf: (id: number) => Category | undefined;
   onEdit: (tx: Transaction) => void;
+  onClassify: (tx: Transaction) => void;
   onDelete: (tx: Transaction) => void;
   onClose: () => void;
 }) {
@@ -149,7 +153,22 @@ export function SelectedTransactionCard({
           </Link>
         </div>
       ) : (
-        <div className="mt-4 flex justify-end gap-2">
+        <>
+        <div className="mt-4 rounded-xl bg-page/60 px-4 py-3 text-sm" data-testid="purpose-info">
+          <p className="text-ink-900">
+            Назначение: {tx.purpose ? PURPOSE_LABEL[tx.purpose] : tx.type === "income" ? "обычный доход" : "обычный расход"}
+            {tx.purpose === "own_transfer" && tx.purpose_account_id ? ` · второй счёт «${accountName(tx.purpose_account_id)}»` : ""}
+          </p>
+          <p className="text-ink-500">
+            {tx.purpose
+              ? `${PURPOSE_EFFECT[tx.purpose]} Отметку можно изменить или отменить.`
+              : "Если это перевод на свой счёт или договор либо погашение кредитки — отметьте назначение, и операция перестанет считаться обычным расходом."}
+          </p>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={() => onClassify(tx)}>
+            Назначение
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => onEdit(tx)}>
             Изменить
           </Button>
@@ -157,6 +176,7 @@ export function SelectedTransactionCard({
             Удалить
           </Button>
         </div>
+        </>
       )}
     </Shell>
   );

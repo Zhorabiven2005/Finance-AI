@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Budget, Category, Transaction
 from app.db.session import get_db
 from app.engine.budgets import calculate_budget_usage, month_bounds
+from app.engine.flows import is_transfer
 from app.engine.money import Money, get_currency, money_sum
 from app.schemas.budgets import BudgetCreate, BudgetOut, BudgetUpdate
 from app.schemas.money import MoneyOut
@@ -75,7 +76,8 @@ def compute_spent(db: Session, budget: Budget) -> Money:
             Transaction.occurred_at <= end,
         )
     )
-    return money_sum((Money.of(t.amount_minor, cur) for t in rows), cur)
+    # Отмеченный пользователем перевод не расходует бюджет (Stage 3F).
+    return money_sum((Money.of(t.amount_minor, cur) for t in rows if not is_transfer(t)), cur)
 
 
 def to_out(db: Session, budget: Budget) -> BudgetOut:

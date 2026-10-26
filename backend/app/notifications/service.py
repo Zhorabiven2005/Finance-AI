@@ -34,6 +34,7 @@ from app import clock
 from app.api.v1.budgets import compute_spent
 from app.db.models import Budget, Debt, Notification, RecurringTransaction, Transaction
 from app.engine.budgets import month_bounds
+from app.engine.flows import is_transfer
 from app.engine.debts import debt_remaining
 from app.engine.money import Money, get_currency, money_sum
 from app.notifications import rules
@@ -93,6 +94,8 @@ def _expense_totals(db: Session, today: date) -> dict[tuple[str, int, int], Mone
             Transaction.type == "expense", Transaction.occurred_at >= start, Transaction.occurred_at <= end
         )
     ):
+        if is_transfer(t):  # отмеченный перевод — не расход (Stage 3F)
+            continue
         at = t.occurred_at.astimezone(timezone.utc)
         sums[(t.currency, at.year, at.month)].append(Money.of(t.amount_minor, t.currency))
     return {k: money_sum(v, k[0]) for k, v in sums.items()}

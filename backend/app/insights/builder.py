@@ -37,6 +37,7 @@ from app.context.labels import sanitize_label
 from app.db.models import Account, Category, RecurringTransaction, Transaction, Transfer
 from app.engine import insights as rules
 from app.engine.analytics import share_percent
+from app.engine.flows import debt_repayment_category_ids, flow_kind, is_transfer
 from app.engine.budgets import month_bounds
 from app.engine.money import Money, money_sum
 from app.insights.comparison import build_comparison
@@ -144,8 +145,11 @@ class _Data:
     period: _Period
     today: date
     now: datetime
-    txs: list[Transaction]  # операции окна истории (включая период)
-    period_txs: list[Transaction]
+    txs: list[Transaction]  # операции окна истории (включая период), без отмеченных переводов
+    period_txs: list[Transaction]  # операции периода без отмеченных переводов
+    # Операции периода, отмеченные пользователем как переводы (Stage 3F): не
+    # доходы и не расходы, но двигают остатки счетов.
+    period_marked: list[Transaction]
     transfers: list[Transfer]  # переводы периода
     accounts: dict[int, Account]
     categories: dict[int, Category]
@@ -163,12 +167,16 @@ def build_insights(db: Session, *, period_key: InsightPeriodKey, today: date, to
         )
     )
     first = db.scalar(select(func.min(Transaction.occurred_at)))
+    # Единое правило (app/engine/flows.py): отмеченные переводы не входят ни в
+    # доходы, ни в расходы, ни в обычный уровень трат.
+    counted = [t for t in txs if not is_transfer(t)]
     data = _Data(
         period=period,
         today=today,
         now=now,
-        txs=txs,
-        period_txs=[t for t in txs if t.occurred_at >= period.start],
+        txs=counted,
+        period_txs=[t for t in counted if t.occurred_at >= period.start],
+        period_marked=[t for t in txs if is_transfer(t) and t.occurred_at >= period.start],
         transfers=list(
             db.scalars(select(Transfer).where(Transfer.occurred_at >= period.start, Transfer.occurred_at <= period.end))
         ),
@@ -182,8 +190,10 @@ def build_insights(db: Session, *, period_key: InsightPeriodKey, today: date, to
 
     insights: list[InsightOut] = []
     unavailable: list[UnavailableInsightOut] = []
-    currencies = sorted({t.currency for t in data.period_txs})
-    if not data.period_txs:
+    # Валюта с одними отмеченными переводами тоже показывается: доходы и
+    # расходы — ноль, переводы — отдельной строкой.
+    currencies = sorted({t.currency for t in [*data.period_txs, *data.period_marked]})
+    if not data.period_txs and not data.period_marked:
         for kind in ("cash_flow", "spending_structure"):
             unavailable.append(
                 UnavailableInsightOut(type=kind, kind="insufficient_data", reason="За выбранный период нет операций.")  # type: ignore[arg-type]
@@ -215,7 +225,6 @@ def build_insights(db: Session, *, period_key: InsightPeriodKey, today: date, to
     )
 
 
-DEBT_REPAYMENT_CATEGORY = "Погашение долга"  # категория журнала долгов (api/v1/debts.py)
 DEBT_UNCERTAINTY = (
     "Погашения долгов не входят в расходы на жизнь, чтобы покупки по кредитной карте, уже записанные расходами, "
     "не учитывались второй раз. Записаны ли эти покупки, приложение проверить не может: если нет, расходы на "
@@ -224,14 +233,10 @@ DEBT_UNCERTAINTY = (
 
 
 def is_debt_repayment(categories: dict[int, Category], t: Transaction) -> bool:
-    """Подтверждённое погашение долга: операция платежа по долгу или явная
+    """Погашение долга по единому правилу (app/engine/flows.py): назначение
+    «погашение», выбранное пользователем, операция платежа по долгу или
     категория «Погашение долга». Других догадок нет."""
-    if t.type != "expense":
-        return False
-    if t.debt_payment_id is not None:
-        return True
-    category = categories.get(t.category_id)
-    return category is not None and category.type == "expense" and category.name == DEBT_REPAYMENT_CATEGORY
+    return flow_kind(t, debt_repayment_category_ids(categories.values())) == "debt_repayment"
 
 
 def _is_debt_repayment(data: _Data, t: Transaction) -> bool:
@@ -244,7 +249,11 @@ def living_expense_threshold(
     """Обычный уровень трат и порог крупного расхода по расходам на жизнь
     одной валюты (без подтверждённых погашений долгов). Общий для инсайта
     «Крупные расходы» и предупреждений Stage 3E."""
-    baseline = [t for t in txs if t.currency == cur and t.type == "expense" and not is_debt_repayment(categories, t)]
+    baseline = [
+        t
+        for t in txs
+        if t.currency == cur and t.type == "expense" and not is_transfer(t) and not is_debt_repayment(categories, t)
+    ]
     return baseline, rules.large_expense_threshold([t.amount_minor for t in baseline])
 
 
@@ -272,8 +281,9 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
     # плюс переводы, затрагивающие активные счета (перевод между двумя
     # активными счетами в сумме даёт ноль).
     active = {aid for aid, a in data.accounts.items() if a.is_active and a.currency == cur}
+    marked = [t for t in data.period_marked if t.currency == cur]
     change = Money.zero(cur)
-    for t in txs:
+    for t in [*txs, *marked]:  # отмеченные переводы тоже двигают остатки
         if t.account_id in active:
             amount = Money.of(t.amount_minor, cur)
             change = change + amount if t.type == "income" else change - amount
@@ -299,6 +309,14 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
                 label="Переводы между своими счетами",
                 money=_out(transfers_total),
                 note=f"{len(transfers)} шт.; не входят ни в доходы, ни в расходы",
+            )
+        )
+    if marked:
+        items.append(
+            InsightItemOut(
+                label="Отмечены вами как переводы",
+                money=_out(money_sum((Money.of(t.amount_minor, cur) for t in marked), cur)),
+                note=f"{len(marked)} шт.; не входят ни в доходы, ни в расходы",
             )
         )
     if debt_out.minor:
@@ -520,7 +538,7 @@ def _recurring_expenses(db: Session, data: _Data, insights: list[InsightOut], un
         return
     groups: dict[tuple[str, int, int, int], list[Transaction]] = defaultdict(list)
     for t in data.txs:
-        if t.type == "expense" and t.debt_payment_id is None:
+        if t.type == "expense" and not _is_debt_repayment(data, t):
             groups[(t.currency, t.category_id, t.account_id, t.amount_minor)].append(t)
     rules_keys = {
         (r.currency, r.category_id, r.account_id, r.amount_minor)

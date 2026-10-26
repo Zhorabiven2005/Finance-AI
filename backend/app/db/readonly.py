@@ -37,9 +37,16 @@ def get_readonly_db(db: Session = Depends(get_db)) -> Generator[Session, None, N
         yield db
     finally:
         event.remove(db, "before_flush", _block_flush)
-        db.rollback()
         # PRAGMA query_only — настройка соединения, а не транзакции: она
-        # действует и после rollback. Пустую транзакцию, открытую этим
-        # вызовом, закрываем откатом — так соединение возвращается чистым.
-        db.connection().exec_driver_sql("PRAGMA query_only = OFF")
+        # действует и после rollback. Снимать её нужно на ТОМ ЖЕ соединении,
+        # то есть до rollback: после rollback сессия отдаёт соединение в пул,
+        # и db.connection() взяло бы из пула другое — а это осталось бы
+        # read-only, и следующая запись на нём упала бы («attempt to write a
+        # readonly database»). Если транзакция уже в состоянии ошибки и
+        # соединение недоступно, режим снимет сброс при возврате в пул
+        # (app/db/session.py, _reset_query_only).
+        try:
+            db.connection().exec_driver_sql("PRAGMA query_only = OFF")
+        except Exception:  # noqa: BLE001 — запасная линия ниже
+            pass
         db.rollback()

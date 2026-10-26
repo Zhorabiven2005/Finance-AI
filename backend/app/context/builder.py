@@ -42,6 +42,7 @@ from app.db.models import (
 from app.db.models.app_settings import get_base_currency
 from app.engine.analytics import share_percent
 from app.engine.budgets import month_bounds
+from app.engine.flows import is_transfer
 from app.engine.money import Money, get_currency, money_sum
 from app.engine.recurring import pending_occurrences
 from app.notifications.rules import previous_month
@@ -189,6 +190,8 @@ def build_context(
             Transaction.occurred_at >= fetch_start, Transaction.occurred_at <= current_end
         )
     ):
+        if is_transfer(t):  # отмеченный пользователем перевод — не доход и не расход
+            continue
         at = t.occurred_at.astimezone(timezone.utc)
         key = (at.year, at.month)
         flow = flows[key].setdefault(t.currency, _Flow.empty(t.currency))

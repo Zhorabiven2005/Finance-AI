@@ -6,11 +6,15 @@
 
 История версий:
   * 1 — Stage 2D;
-  * 2 — Stage 2E: добавлен раздел data.notifications. Экспорт пишет 2;
-    файлы версии 1 по-прежнему импортируются (уведомлений в них нет —
-    после восстановления их заново создаст проверка уведомлений).
+  * 2 — Stage 2E: добавлен раздел data.notifications; файлы версии 1
+    по-прежнему импортируются (уведомлений в них нет — после восстановления
+    их заново создаст проверка уведомлений);
+  * 3 — Stage 3F: у операций поля ручной классификации purpose,
+    purpose_account_id, purpose_debt_id. Экспорт пишет 3; в файлах версий 1
+    и 2 этих полей нет — операции восстанавливаются без назначения (обычные
+    доходы и расходы), как и было в той версии приложения.
 
-Структура (version 2):
+Структура (version 3):
 
     {
       "format": "finance-ai-backup",
@@ -48,8 +52,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from app.db.models.notification import NOTIFICATION_ENTITY_TYPES, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES
 
 BACKUP_FORMAT_NAME = "finance-ai-backup"
-BACKUP_FORMAT_VERSION = 2
-SUPPORTED_BACKUP_VERSIONS = frozenset({1, BACKUP_FORMAT_VERSION})
+BACKUP_FORMAT_VERSION = 3
+SUPPORTED_BACKUP_VERSIONS = frozenset({1, 2, BACKUP_FORMAT_VERSION})
 
 # Лимиты против случайно (или намеренно) огромных файлов.
 MAX_BACKUP_BYTES = 25 * 1024 * 1024
@@ -99,6 +103,10 @@ class TransactionRecord(_Record):
     occurred_at: AwareDatetime
     comment: str | None = Field(max_length=500)
     debt_payment_id: int | None = Field(gt=0, le=MAX_ID)
+    # С version 3 (Stage 3F). В файлах версий 1–2 отсутствуют → None.
+    purpose: Literal["own_transfer", "external_transfer", "debt_repayment"] | None = None
+    purpose_account_id: int | None = Field(default=None, gt=0, le=MAX_ID)
+    purpose_debt_id: int | None = Field(default=None, gt=0, le=MAX_ID)
 
 
 class TransferRecord(_Record):
@@ -236,7 +244,7 @@ class BackupDocument(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     format: Literal["finance-ai-backup"]
-    version: Literal[1, 2]
+    version: Literal[1, 2, 3]
     exported_at: AwareDatetime
     base_currency: str = Currency
     settings: BackupSettings

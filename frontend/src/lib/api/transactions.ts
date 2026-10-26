@@ -16,6 +16,19 @@ export interface Transaction {
   /** Заполнены, если операция — движение денег от погашения долга. */
   debt_id?: number | null;
   debt_name?: string | null;
+  /** Назначение, выбранное пользователем (Stage 3F); null — обычная операция. */
+  purpose?: TransactionPurpose | null;
+  purpose_account_id?: number | null;
+  purpose_debt_id?: number | null;
+}
+
+/** Ручная классификация операции (Stage 3F). */
+export type TransactionPurpose = "own_transfer" | "external_transfer" | "debt_repayment";
+
+export interface TransactionPurposeInput {
+  purpose: TransactionPurpose | null;
+  purpose_account_id?: number | null;
+  purpose_debt_id?: number | null;
 }
 
 export interface TransactionCreateInput {
@@ -60,5 +73,10 @@ export const transactionsApi = {
   update: (id: number, input: Partial<TransactionCreateInput>) =>
     api.patch<Transaction>(`/transactions/${id}`, input),
   get: (id: number) => api.get<Transaction>(`/transactions/${id}`),
+  /** Назначение операции; purpose: null возвращает обычный тип. */
+  setPurpose: (id: number, input: TransactionPurposeInput) =>
+    api.patch<Transaction>(`/transactions/${id}/purpose`, input),
+  /** Возможная вторая сторона перевода между своими счетами — только подсказка. */
+  pairCandidates: (id: number) => api.get<Transaction[]>(`/transactions/${id}/pair-candidates`),
   remove: (id: number) => api.delete<void>(`/transactions/${id}`),
 };

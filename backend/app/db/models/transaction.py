@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from app.db.models.debt import DebtPayment
 
 TRANSACTION_TYPES = ("income", "expense")
+# Назначения операции (Stage 3F). NULL в БД — обычный доход или расход.
+TRANSACTION_PURPOSES = ("own_transfer", "external_transfer", "debt_repayment")
 
 
 class Transaction(Base, TimestampMixin):
@@ -53,6 +55,20 @@ class Transaction(Base, TimestampMixin):
         nullable=True,
         unique=True,
     )
+    # Назначение операции (Stage 3F), задаётся только явным действием
+    # пользователя. NULL — обычный доход или расход. Иначе одно из
+    # TRANSACTION_PURPOSES: перевод между своими счетами, перевод на свой
+    # внешний продукт (счёт или договор вне приложения), погашение долга.
+    # Сумма, дата, счёт, категория и комментарий при этом не меняются, баланс
+    # счёта тоже (деньги действительно ушли или пришли) — меняется только
+    # учёт в доходах и расходах (см. app/engine/flows.py).
+    purpose: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # Второй свой счёт для перевода между своими счетами. Без внешнего ключа,
+    # как у Notification.entity_id: связь проверяется при записи, а удаление
+    # счёта или долга не должно трогать саму операцию.
+    purpose_account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Долг, который погашает операция (необязательно).
+    purpose_debt_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     account: Mapped["Account"] = relationship(back_populates="transactions")
     category: Mapped["Category"] = relationship(back_populates="transactions")

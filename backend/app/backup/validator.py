@@ -232,6 +232,7 @@ def _semantic_errors(doc: BackupDocument) -> list[str]:
         elif category.type != t.type:
             err("transactions", t.id, "тип операции не совпадает с типом категории")
         check_currency("transactions", t.id, t.currency)
+        _check_transaction_purpose(t, accounts, debts, err)
         if t.debt_payment_id is not None:
             ledger_by_payment[t.debt_payment_id] += 1
             payment = payments.get(t.debt_payment_id)
@@ -354,6 +355,11 @@ def validate_backup(raw: bytes) -> BackupDocument:
     except ValidationError as e:
         raise BackupInvalidError(_schema_errors(obj, e)) from None
     errors = _semantic_errors(doc)
+    if doc.version < 3:
+        # Поля назначения появились в version 3: в старом файле их быть не может.
+        for t in doc.data.transactions:
+            if t.model_fields_set & {"purpose", "purpose_account_id", "purpose_debt_id"}:
+                errors.append(f"Операции: запись id={t.id}: поля назначения допустимы только с версии 3.")
     if errors:
         raise BackupInvalidError(errors)
     return doc
@@ -377,3 +383,34 @@ def _upgrade_v1(doc: BackupDocumentV1) -> BackupDocument:
 
 def summarize(doc: BackupDocument) -> dict[str, int]:
     return {section: len(getattr(doc.data, section)) for section in SECTION_LABELS}
+
+
+def _check_transaction_purpose(t, accounts, debts, err) -> None:
+    """Ручная классификация (version 3): те же правила, что у
+    PATCH /transactions/{id}/purpose."""
+    from app.engine.flows import PURPOSE_DEBT_REPAYMENT, PURPOSE_OWN_TRANSFER, allowed_purposes
+
+    if t.purpose is None:
+        if t.purpose_account_id is not None or t.purpose_debt_id is not None:
+            err("transactions", t.id, "счёт или долг назначения указаны без назначения")
+        return
+    if t.debt_payment_id is not None:
+        err("transactions", t.id, "у операции платежа по долгу не может быть ручного назначения")
+    if t.purpose not in allowed_purposes(t.type):
+        err("transactions", t.id, "погашением долга может быть только расход")
+    if t.purpose == PURPOSE_OWN_TRANSFER:
+        other = accounts.get(t.purpose_account_id) if t.purpose_account_id is not None else None
+        if other is None:
+            err("transactions", t.id, "для перевода между своими счетами не найден второй счёт")
+        elif other.id == t.account_id or other.currency != t.currency:
+            err("transactions", t.id, "второй счёт перевода должен отличаться от счёта операции и иметь ту же валюту")
+    elif t.purpose_account_id is not None:
+        err("transactions", t.id, "второй счёт указывается только для перевода между своими счетами")
+    if t.purpose_debt_id is not None:
+        debt = debts.get(t.purpose_debt_id)
+        if t.purpose != PURPOSE_DEBT_REPAYMENT:
+            err("transactions", t.id, "долг указывается только для погашения долга")
+        elif debt is None:
+            err("transactions", t.id, f"долг id={t.purpose_debt_id} не найден")
+        elif debt.direction != "i_owe" or debt.currency != t.currency:
+            err("transactions", t.id, "погашать можно только свой долг той же валюты")
