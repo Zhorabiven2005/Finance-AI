@@ -223,15 +223,29 @@ DEBT_UNCERTAINTY = (
 )
 
 
-def _is_debt_repayment(data: _Data, t: Transaction) -> bool:
+def is_debt_repayment(categories: dict[int, Category], t: Transaction) -> bool:
     """Подтверждённое погашение долга: операция платежа по долгу или явная
     категория «Погашение долга». Других догадок нет."""
     if t.type != "expense":
         return False
     if t.debt_payment_id is not None:
         return True
-    category = data.categories.get(t.category_id)
+    category = categories.get(t.category_id)
     return category is not None and category.type == "expense" and category.name == DEBT_REPAYMENT_CATEGORY
+
+
+def _is_debt_repayment(data: _Data, t: Transaction) -> bool:
+    return is_debt_repayment(data.categories, t)
+
+
+def living_expense_threshold(
+    txs: list[Transaction], categories: dict[int, Category], cur: str
+) -> tuple[list[Transaction], rules.LargeExpenseThreshold | None]:
+    """Обычный уровень трат и порог крупного расхода по расходам на жизнь
+    одной валюты (без подтверждённых погашений долгов). Общий для инсайта
+    «Крупные расходы» и предупреждений Stage 3E."""
+    baseline = [t for t in txs if t.currency == cur and t.type == "expense" and not is_debt_repayment(categories, t)]
+    return baseline, rules.large_expense_threshold([t.amount_minor for t in baseline])
 
 
 def _coverage_limitation(data: _Data) -> list[str]:
@@ -399,8 +413,7 @@ def _spending_structure(data: _Data, cur: str) -> InsightOut | None:
 
 
 def _large_expenses(data: _Data, cur: str, insights: list[InsightOut], unavailable: list[UnavailableInsightOut]) -> None:
-    baseline = [t for t in data.txs if t.currency == cur and t.type == "expense"]
-    threshold = rules.large_expense_threshold([t.amount_minor for t in baseline])
+    baseline, threshold = living_expense_threshold(data.txs, data.categories, cur)
     if threshold is None:
         unavailable.append(
             UnavailableInsightOut(
@@ -414,7 +427,9 @@ def _large_expenses(data: _Data, cur: str, insights: list[InsightOut], unavailab
             )
         )
         return
-    period_expenses = [t for t in data.period_txs if t.currency == cur and t.type == "expense"]
+    period_expenses = [
+        t for t in data.period_txs if t.currency == cur and t.type == "expense" and not _is_debt_repayment(data, t)
+    ]
     large = sorted(
         (t for t in period_expenses if t.amount_minor >= threshold.threshold_minor),
         key=lambda t: (-t.amount_minor, t.occurred_at),
@@ -444,14 +459,13 @@ def _large_expenses(data: _Data, cur: str, insights: list[InsightOut], unavailab
                 money=_out(amount),
                 percent=round_percent(share_percent(amount, period_total)) or 0.0,
                 date=_utc_date(t.occurred_at),
-                note=f"в {str(times).replace('.', ',')} раза больше обычной траты"
-                + ("; это погашение долга" if t.debt_payment_id else ""),
+                note=f"в {str(times).replace('.', ',')} раза больше обычной траты",
             )
         )
     share = round_percent(share_percent(large_total, period_total)) or 0.0
     summary = (
         f"{len(large)} {_plural(len(large), 'расход', 'расхода', 'расходов')} заметно выше обычного уровня: вместе "
-        f"{_fmt(large_total)}, это {_pct(share)} расходов периода. Обычная трата — около {_fmt(median)}. "
+        f"{_fmt(large_total)}, это {_pct(share)} расходов на жизнь за период. Обычная трата — около {_fmt(median)}. "
         "Крупный расход не обязательно ошибка или лишняя трата — проверьте, был ли он запланирован."
     )
     insights.append(
@@ -466,13 +480,13 @@ def _large_expenses(data: _Data, cur: str, insights: list[InsightOut], unavailab
             metrics=[
                 InsightMetricOut(label="Крупных расходов", count=len(large)),
                 InsightMetricOut(label="Их сумма", money=_out(large_total)),
-                InsightMetricOut(label="Доля в расходах периода", percent=share),
-                InsightMetricOut(label="Обычная трата (медиана всех расходов за полгода)", money=_out(median)),
+                InsightMetricOut(label="Доля в расходах на жизнь", percent=share),
+                InsightMetricOut(label="Обычная трата (медиана расходов на жизнь за полгода)", money=_out(median)),
             ],
             items=items,
             summary=summary,
             limitations=[
-                f"Обычный уровень посчитан по {threshold.baseline_count} расходам за полгода; порог — "
+                f"Обычный уровень посчитан по {threshold.baseline_count} расходам на жизнь за полгода (без погашений долгов); порог — "
                 f"{_fmt(Money.of(threshold.threshold_minor, cur))}."
             ],
             link=InsightLinkOut(to="/transactions", label="Операции"),

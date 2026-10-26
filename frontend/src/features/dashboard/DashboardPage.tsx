@@ -22,6 +22,7 @@ import { formatMoney } from "@/lib/money";
 
 import { TimeseriesChart } from "../analytics/TimeseriesChart";
 import { InsightsSection } from "../insights/InsightsSection";
+import { WarningsSection } from "../insights/WarningsSection";
 
 const ACCOUNT_TYPE_LABEL: Record<Account["type"], string> = {
   bank: "Банковский счёт",
@@ -452,6 +453,8 @@ export function DashboardPage() {
         )}
         <AccountsBlock accounts={data.accounts} />
       </AdaptiveRow>
+
+      <WarningsSection />
 
       <InsightsSection />
 

@@ -3,6 +3,8 @@
   * GET /api/v1/insights?period=current_month|previous_month|last_3_months —
     посчитанные выводы; read-only сессия, модель не участвует, поэтому
     работает и без Ollama;
+  * GET /api/v1/insights/warnings — актуальные финансовые предупреждения
+    (Stage 3E), тоже только чтение и без модели;
   * POST /api/v1/insights/explain — объяснение одного вывода локальной
     моделью потоком NDJSON (те же события и та же сверка чисел, что у чата).
     Инсайт пересчитывается заново на сервере: от клиента приходит только его
@@ -27,8 +29,9 @@ from app.assistant.prompts import build_messages
 from app.config import settings
 from app.db.readonly import get_readonly_db
 from app.insights.builder import build_insights
+from app.insights.warnings import build_warnings
 from app.insights.explain import COMPARISON_ID_PREFIX, EXPLAIN_REQUEST, comparison_facts_text, facts_text
-from app.schemas.insights import InsightExplainRequest, InsightPeriodKey, InsightsOut
+from app.schemas.insights import InsightExplainRequest, InsightPeriodKey, InsightsOut, WarningsOut
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -45,6 +48,13 @@ def get_insights(
     db: Session = Depends(get_readonly_db),
 ) -> InsightsOut:
     return _build(db, period)
+
+
+@router.get("/warnings", response_model=WarningsOut)
+def get_warnings(db: Session = Depends(get_readonly_db)) -> WarningsOut:
+    """Актуальные финансовые предупреждения (Stage 3E): только чтение, без
+    модели; повторы исключены стабильными ключами (см. app/insights/warnings.py)."""
+    return build_warnings(db, today=clock.today(), today_utc=clock.utc_today(), now=datetime.now(timezone.utc))
 
 
 @router.post("/explain")

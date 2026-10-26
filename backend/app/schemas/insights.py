@@ -191,3 +191,60 @@ class InsightsOut(ApiModel):
 class InsightExplainRequest(ApiModel):
     insight_id: str = Field(min_length=1, max_length=100)
     period: InsightPeriodKey = "current_month"
+
+
+# --- финансовые предупреждения (Stage 3E) ---------------------------------------------
+
+WarningType = Literal["budget_exceeded", "budget_pace_risk", "large_expense", "category_spike", "goal_overdue"]
+
+
+class WarningPeriodOut(ApiModel):
+    date_from: dt.date
+    date_to: dt.date
+    label: str
+
+
+class FinancialWarningOut(ApiModel):
+    """Актуальное предупреждение, посчитанное backend по текущим данным.
+
+    key — стабильный ключ события (тип, сущность, период): одно событие
+    даёт один ключ при любом числе запросов, поэтому по нему можно
+    скрывать предупреждение и не показывать его повторно. kind различает
+    факт (бюджет уже превышен, срок цели прошёл), оценку (риск по темпу
+    трат) и наблюдение (крупный расход, рост категории)."""
+
+    key: str
+    type: WarningType
+    kind: Literal["fact", "estimate", "observation"]
+    severity: Literal["warning", "attention"]
+    title: str
+    message: str
+    currency: str | None
+    metrics: list[InsightMetricOut]
+    period: WarningPeriodOut
+    recommendation: str | None
+    link: InsightLinkOut | None
+
+
+class LargeExpenseGroupOut(ApiModel):
+    """Сводка предупреждений о крупных расходах одной валюты: сколько
+    операций и на какую сумму (сумма посчитана backend, только в одной
+    валюте). keys — ключи предупреждений группы; сами предупреждения
+    остаются в warnings и скрываются по своим ключам."""
+
+    currency: str
+    count: int
+    total: MoneyOut
+    keys: list[str]
+    period: WarningPeriodOut
+
+
+class WarningsOut(ApiModel):
+    generated_at: dt.datetime
+    today: dt.date
+    warnings: list[FinancialWarningOut]
+    large_expense_groups: list[LargeExpenseGroupOut] = []
+    # Почему часть проверок не выполнена или ограничена (мало данных, много
+    # «Прочего» и т. п.) — чтобы отсутствие предупреждения не выглядело как
+    # «всё хорошо», когда проверить было нельзя.
+    limitations: list[str]

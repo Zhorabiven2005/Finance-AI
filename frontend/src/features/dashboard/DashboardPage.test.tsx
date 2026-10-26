@@ -51,6 +51,7 @@ vi.mock("@/lib/api/insights", () => ({
       insights: [],
       unavailable: [],
     }),
+    warnings: async () => ({ generated_at: "2026-10-25T00:00:00Z", today: "2026-10-25", warnings: [], limitations: [] }),
   },
   streamInsightExplanation: async () => undefined,
 }));

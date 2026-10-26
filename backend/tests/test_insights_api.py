@@ -224,7 +224,7 @@ class TestLargeExpenses:
         b.tx(a, 2_000_000, "2026-10-20T09:00:00Z", "Одежда и обувь")
         li = by_id(get(seeded_client), "large_expenses:RUB")
         assert metric(li, "Крупных расходов")["count"] == 1
-        assert metric(li, "Обычная трата (медиана всех расходов за полгода)")["money"]["minor"] == 50_000
+        assert metric(li, "Обычная трата (медиана расходов на жизнь за полгода)")["money"]["minor"] == 50_000
         row = li["items"][0]
         assert row["money"]["minor"] == 2_000_000 and row["date"] == "2026-10-20"
         assert row["label"] == "Одежда и обувь · Карта" and "в 40,0 раза больше обычной траты" in row["note"]

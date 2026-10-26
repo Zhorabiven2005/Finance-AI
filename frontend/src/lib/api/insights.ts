@@ -120,8 +120,46 @@ export interface InsightsResponse {
   comparison?: PeriodComparison | null;
 }
 
+/** Финансовые предупреждения (Stage 3E): посчитаны backend по текущим данным.
+ * key — стабильный ключ события: по нему предупреждение скрывается и не
+ * показывается повторно. */
+export type WarningType = "budget_exceeded" | "budget_pace_risk" | "large_expense" | "category_spike" | "goal_overdue";
+
+export interface FinancialWarning {
+  key: string;
+  type: WarningType;
+  kind: "fact" | "estimate" | "observation";
+  severity: "warning" | "attention";
+  title: string;
+  message: string;
+  currency: string | null;
+  metrics: InsightMetric[];
+  period: { date_from: string; date_to: string; label: string };
+  recommendation: string | null;
+  link: { to: string; label: string } | null;
+}
+
+/** Сводка крупных расходов одной валюты: число операций и сумма посчитаны
+ * backend; keys — ключи предупреждений группы (скрываются по одному). */
+export interface LargeExpenseGroup {
+  currency: string;
+  count: number;
+  total: MoneyAmount;
+  keys: string[];
+  period: { date_from: string; date_to: string; label: string };
+}
+
+export interface WarningsResponse {
+  generated_at: string;
+  today: string;
+  warnings: FinancialWarning[];
+  limitations: string[];
+  large_expense_groups?: LargeExpenseGroup[];
+}
+
 export const insightsApi = {
   get: (period: InsightPeriodKey) => api.get<InsightsResponse>(`/insights?period=${period}`),
+  warnings: () => api.get<WarningsResponse>("/insights/warnings"),
 };
 
 /** Объяснение одного инсайта локальной моделью (поток NDJSON, как у чата).
