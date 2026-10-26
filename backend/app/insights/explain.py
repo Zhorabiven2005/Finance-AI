@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from app.assistant.digest import label
 from app.engine.money import Money
-from app.schemas.insights import InsightOut
+from app.schemas.insights import ChangeOut, CurrencyComparisonOut, InsightOut, PeriodComparisonOut
 
 EXPLAIN_REQUEST = (
     "Объясни простыми словами этот вывод приложения в 3–5 предложениях: что он означает и почему на него стоит "
@@ -82,4 +82,64 @@ def facts_text(insight: InsightOut) -> str:
     if insight.limitations:
         lines.append("## Ограничения")
         lines += [f"- {x}" for x in insight.limitations]
+    return "\n".join(lines)
+
+
+COMPARISON_ID_PREFIX = "comparison:"
+PERCENT_NULL_TEXT = {
+    "zero_base": "процента нет: в прошлом периоде было 0",
+    "insufficient_history": "процента нет: прошлый период не покрыт данными",
+}
+
+
+def _change(c: ChangeOut) -> str:
+    sign = "+" if c.delta.minor > 0 else ""
+    pct = (
+        f"{'+' if (c.percent or 0) > 0 else ''}{_pct(c.percent)}"
+        if c.percent is not None
+        else PERCENT_NULL_TEXT[c.percent_null_reason or "zero_base"]
+    )
+    return f"сейчас {_money(c.current)}, было {_money(c.previous)}, изменение {sign}{_money(c.delta)} ({pct})"
+
+
+def comparison_facts_text(comparison: PeriodComparisonOut, item: CurrencyComparisonOut) -> str:
+    """Сравнение периодов для модели: только посчитанные значения."""
+    lines = [
+        "## Вывод приложения: сравнение периодов",
+        f"- Текущий период: {comparison.current.label}; прошлый: {comparison.previous.label}.",
+        f"- {comparison.note}",
+        f"- Валюта: {item.currency}. Уверенность вывода: {CONFIDENCE_TEXT[item.confidence]}.",
+        "## Показатели",
+        f"- Доходы: {_change(item.income)}.",
+        f"- Расходы на жизнь (без погашений долгов): {_change(item.expense_without_debt_repayments)}.",
+        f"- Погашения долгов (не входят в расходы на жизнь): {_change(item.debt_repayments)}.",
+        f"- Все расходы вместе с погашениями: {_change(item.expense)}.",
+        f"- Доходы минус все расходы: {_change(item.net)}.",
+    ]
+    t = item.transfers_excluded
+    lines.append(
+        f"- Переводы между своими счетами не входят в доходы и расходы: сейчас {t.current_count} на "
+        f"{_money(t.current_total)}, было {t.previous_count} на {_money(t.previous_total)}."
+    )
+    if item.categories:
+        lines.append("## Изменение расходов по категориям")
+        lines += [f"- {label(r.label)}: {_change(r)}." for r in item.categories]
+    if item.large_expenses is not None:
+        le = item.large_expenses
+        lines.append(
+            f"- Крупные расходы (от {_money(le.threshold)}): сейчас {le.current_count}, было {le.previous_count}; "
+            f"сумма — {_change(le.total)}."
+        )
+    elif item.large_expenses_null_reason:
+        lines.append(f"- Крупные расходы: {item.large_expenses_null_reason}")
+    sh = item.other_share
+    if sh.current is not None or sh.previous is not None:
+        cur = _pct(sh.current) if sh.current is not None else "нет расходов"
+        prev = _pct(sh.previous) if sh.previous is not None else "нет расходов"
+        lines.append(f"- Доля «Прочих расходов»: сейчас {cur}, было {prev}.")
+    lines.append("## Итог приложения")
+    lines.append(f"- {item.summary}")
+    if item.warnings:
+        lines.append("## Ограничения")
+        lines += [f"- {w}" for w in item.warnings]
     return "\n".join(lines)

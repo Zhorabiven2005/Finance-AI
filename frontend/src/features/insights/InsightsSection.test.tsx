@@ -146,6 +146,47 @@ describe("Финансовые инсайты", () => {
     expect(screen.getByRole("tab", { name: "Прошлый месяц" }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("сравнение с прошлым периодом показано над карточками выводов", async () => {
+    const change = { current: rub(200), previous: rub(100), delta: rub(100), percent: 100, percent_null_reason: null };
+    insightsPayload = response({
+      comparison: {
+        key: "current_month",
+        current: { date_from: "2026-10-01", date_to: "2026-10-25", label: "1–25 октября 2026", days: 25 },
+        previous: { date_from: "2026-09-01", date_to: "2026-09-25", label: "1–25 сентября 2026", days: 25 },
+        same_days: true,
+        note: "Сравниваются одинаковые дни.",
+        unavailable_reason: null,
+        by_currency: [
+          {
+            currency: "RUB",
+            confidence: "high",
+            income: change,
+            expense: change,
+            net: { ...change, current: rub(0), previous: rub(0), delta: rub(0), percent: null, percent_null_reason: "zero_base" },
+            debt_repayments: { ...change, current: rub(0), previous: rub(0), delta: rub(0), percent: null, percent_null_reason: "zero_base" },
+            expense_without_debt_repayments: change,
+            categories_up: [],
+            categories_down: [],
+            categories: [],
+            categories_truncated: false,
+            large_expenses: null,
+            large_expenses_null_reason: "Мало расходов.",
+            other_share: { current: null, previous: null, delta_points: null },
+            transfers_excluded: { current_count: 0, current_total: rub(0), previous_count: 0, previous_total: rub(0) },
+            possible_internal_pairs: { count: 0, total: rub(0) },
+            summary: "Расходы выросли на 1,00 ₽ (+100,0%).",
+            warnings: [],
+          },
+        ],
+      },
+    });
+    renderWithProviders(<InsightsSection />);
+    const block = await screen.findByTestId("comparison");
+    expect(block.textContent).toContain("1–25 октября 2026 против 1–25 сентября 2026");
+    const firstCard = screen.getAllByTestId("insight")[0]!;
+    expect(block.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("недоверенные названия — только текст", async () => {
     insightsPayload = response({ insights: [insight({ items: [{ label: '<img src=x onerror="alert(1)">', money: rub(100) }] })] });
     const { container } = renderWithProviders(<InsightsSection />);

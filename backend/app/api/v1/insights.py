@@ -27,7 +27,7 @@ from app.assistant.prompts import build_messages
 from app.config import settings
 from app.db.readonly import get_readonly_db
 from app.insights.builder import build_insights
-from app.insights.explain import EXPLAIN_REQUEST, facts_text
+from app.insights.explain import COMPARISON_ID_PREFIX, EXPLAIN_REQUEST, comparison_facts_text, facts_text
 from app.schemas.insights import InsightExplainRequest, InsightPeriodKey, InsightsOut
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -55,10 +55,19 @@ def explain_insight(
 ) -> StreamingResponse:
     if not settings.assistant_enabled:
         raise HTTPException(status_code=503, detail=STATE_MESSAGES["disabled"])
-    insight = next((i for i in _build(db, payload.period).insights if i.id == payload.insight_id), None)
-    if insight is None:
+    built = _build(db, payload.period)
+    facts = None
+    if payload.insight_id.startswith(COMPARISON_ID_PREFIX) and built.comparison is not None:
+        currency = payload.insight_id.removeprefix(COMPARISON_ID_PREFIX)
+        item = next((c for c in built.comparison.by_currency if c.currency == currency), None)
+        if item is not None:
+            facts = comparison_facts_text(built.comparison, item)
+    else:
+        insight = next((i for i in built.insights if i.id == payload.insight_id), None)
+        if insight is not None:
+            facts = facts_text(insight)
+    if facts is None:
         raise HTTPException(status_code=404, detail="Такого вывода за этот период нет — обновите список инсайтов.")
-    facts = facts_text(insight)
     stream = ChatStream(
         client,
         model=settings.assistant_model,
@@ -69,7 +78,7 @@ def explain_insight(
         chunk_timeout=settings.assistant_chunk_timeout_seconds,
         total_timeout=settings.assistant_total_timeout_seconds,
     )
-    meta = {"insight_id": insight.id, "context_generated_at": datetime.now(timezone.utc).isoformat()}
+    meta = {"insight_id": payload.insight_id, "context_generated_at": datetime.now(timezone.utc).isoformat()}
     return StreamingResponse(
         stream_events(stream, model=settings.assistant_model, meta=meta, grounding_sources=[facts]),
         media_type="application/x-ndjson",

@@ -87,6 +87,97 @@ class UnavailableInsightOut(ApiModel):
     reason: str
 
 
+# --- сравнение периодов (Stage 3D) ---------------------------------------------------
+
+
+class ComparisonWindowOut(ApiModel):
+    date_from: dt.date
+    date_to: dt.date
+    label: str
+    days: int
+
+
+class ChangeOut(ApiModel):
+    """current − previous. percent — None, если база нулевая (zero_base) или
+    прошлый период не покрыт данными (insufficient_history)."""
+
+    current: MoneyOut
+    previous: MoneyOut
+    delta: MoneyOut
+    percent: float | None
+    percent_null_reason: Literal["zero_base", "insufficient_history"] | None
+
+
+class CategoryChangeOut(ChangeOut):
+    category_id: int
+    label: str
+
+
+class LargeExpensesComparisonOut(ApiModel):
+    """Крупные расходы обоих периодов по ОДНОМУ порогу — иначе сравнение
+    количества не имеет смысла."""
+
+    threshold: MoneyOut
+    current_count: int
+    previous_count: int
+    total: ChangeOut
+
+
+class ShareComparisonOut(ApiModel):
+    """Доля «Прочих расходов» в расходах периода, в процентах, и изменение
+    в процентных пунктах."""
+
+    current: float | None
+    previous: float | None
+    delta_points: float | None
+
+
+class TransfersExcludedOut(ApiModel):
+    current_count: int
+    current_total: MoneyOut
+    previous_count: int
+    previous_total: MoneyOut
+
+
+class PossibleInternalPairsOut(ApiModel):
+    """Расход и доход одной суммы в один день на разных своих счетах. Только
+    подозрение: суммы НЕ исключены из доходов и расходов."""
+
+    count: int
+    total: MoneyOut
+
+
+class CurrencyComparisonOut(ApiModel):
+    currency: str
+    confidence: Confidence
+    income: ChangeOut
+    expense: ChangeOut
+    net: ChangeOut
+    debt_repayments: ChangeOut
+    expense_without_debt_repayments: ChangeOut
+    categories_up: list[CategoryChangeOut]
+    categories_down: list[CategoryChangeOut]
+    categories: list[CategoryChangeOut]
+    categories_truncated: bool
+    large_expenses: LargeExpensesComparisonOut | None
+    large_expenses_null_reason: str | None
+    other_share: ShareComparisonOut
+    transfers_excluded: TransfersExcludedOut
+    possible_internal_pairs: PossibleInternalPairsOut
+    summary: str
+    warnings: list[str]
+
+
+class PeriodComparisonOut(ApiModel):
+    key: InsightPeriodKey
+    current: ComparisonWindowOut
+    previous: ComparisonWindowOut
+    same_days: bool
+    note: str
+    by_currency: list[CurrencyComparisonOut]
+    unavailable_reason: str | None
+
+
 class InsightsOut(ApiModel):
     generated_at: dt.datetime
     today: dt.date
@@ -94,6 +185,7 @@ class InsightsOut(ApiModel):
     currencies: list[str]
     insights: list[InsightOut]
     unavailable: list[UnavailableInsightOut]
+    comparison: PeriodComparisonOut | None = None
 
 
 class InsightExplainRequest(ApiModel):

@@ -59,6 +59,57 @@ export interface UnavailableInsight {
   reason: string;
 }
 
+/** Сравнение периодов (Stage 3D): все изменения посчитаны backend. */
+export interface Change {
+  current: MoneyAmount;
+  previous: MoneyAmount;
+  delta: MoneyAmount;
+  /** null — база нулевая (zero_base) или прошлый период не покрыт данными. */
+  percent: number | null;
+  percent_null_reason: "zero_base" | "insufficient_history" | null;
+}
+
+export interface CategoryChange extends Change {
+  category_id: number;
+  label: string;
+}
+
+export interface CurrencyComparison {
+  currency: string;
+  confidence: "high" | "medium" | "low";
+  income: Change;
+  expense: Change;
+  net: Change;
+  debt_repayments: Change;
+  expense_without_debt_repayments: Change;
+  categories_up: CategoryChange[];
+  categories_down: CategoryChange[];
+  categories: CategoryChange[];
+  categories_truncated: boolean;
+  large_expenses: { threshold: MoneyAmount; current_count: number; previous_count: number; total: Change } | null;
+  large_expenses_null_reason: string | null;
+  other_share: { current: number | null; previous: number | null; delta_points: number | null };
+  transfers_excluded: {
+    current_count: number;
+    current_total: MoneyAmount;
+    previous_count: number;
+    previous_total: MoneyAmount;
+  };
+  possible_internal_pairs: { count: number; total: MoneyAmount };
+  summary: string;
+  warnings: string[];
+}
+
+export interface PeriodComparison {
+  key: InsightPeriodKey;
+  current: { date_from: string; date_to: string; label: string; days: number };
+  previous: { date_from: string; date_to: string; label: string; days: number };
+  same_days: boolean;
+  note: string;
+  by_currency: CurrencyComparison[];
+  unavailable_reason: string | null;
+}
+
 export interface InsightsResponse {
   generated_at: string;
   today: string;
@@ -66,6 +117,7 @@ export interface InsightsResponse {
   currencies: string[];
   insights: Insight[];
   unavailable: UnavailableInsight[];
+  comparison?: PeriodComparison | null;
 }
 
 export const insightsApi = {

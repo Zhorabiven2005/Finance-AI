@@ -157,6 +157,12 @@ class TestCashFlow:
         assert metric(cf, "Расходы")["money"]["minor"] == 500_000  # по модели приложения погашение — расход
         debt_row = next(i for i in cf["items"] if i["label"] == "В расходах: погашение долгов")
         assert debt_row["money"]["minor"] == 400_000
+        assert metric(cf, "Расходы на жизнь (без погашений долгов)")["money"]["minor"] == 100_000
+        assert any("проверить не может" in x for x in cf["limitations"])
+        # структура расходов — без погашения: покупка и её погашение не занимают две доли
+        st = by_id(get(seeded_client), "spending_structure:RUB")
+        assert [i["label"] for i in st["items"]] == ["Продукты"] and metric(st, "Расходы на жизнь")["money"]["minor"] == 100_000
+        assert any("Погашения долгов на 4 000,00 ₽ в структуру не входят" in x for x in st["limitations"])
 
     def test_refund_and_fee_follow_existing_model(self, seeded_client):
         b = Book(seeded_client)
@@ -202,7 +208,7 @@ class TestSpendingStructure:
         rest = st["items"][5]
         assert rest["label"] == "Остальные категории (2)" and rest["money"]["minor"] == 30_000
         assert rest["percent"] == 10.7  # 30 000 / 280 000 = 10,71…%
-        assert metric(st, "Все расходы")["money"]["minor"] == 280_000
+        assert metric(st, "Расходы на жизнь")["money"]["minor"] == 280_000
         assert "Больше всего ушло на «Продукты»: 700,00 ₽ — 25,0% всех расходов" in st["summary"]
 
 

@@ -39,6 +39,7 @@ from app.engine import insights as rules
 from app.engine.analytics import share_percent
 from app.engine.budgets import month_bounds
 from app.engine.money import Money, money_sum
+from app.insights.comparison import build_comparison
 from app.notifications.rules import previous_month
 from app.schemas.insights import (
     InsightItemOut,
@@ -210,7 +211,27 @@ def build_insights(db: Session, *, period_key: InsightPeriodKey, today: date, to
         currencies=currencies,
         insights=insights,
         unavailable=unavailable,
+        comparison=build_comparison(db, period_key=period_key, today=today),
     )
+
+
+DEBT_REPAYMENT_CATEGORY = "Погашение долга"  # категория журнала долгов (api/v1/debts.py)
+DEBT_UNCERTAINTY = (
+    "Погашения долгов не входят в расходы на жизнь, чтобы покупки по кредитной карте, уже записанные расходами, "
+    "не учитывались второй раз. Записаны ли эти покупки, приложение проверить не может: если нет, расходы на "
+    "жизнь занижены на часть погашений."
+)
+
+
+def _is_debt_repayment(data: _Data, t: Transaction) -> bool:
+    """Подтверждённое погашение долга: операция платежа по долгу или явная
+    категория «Погашение долга». Других догадок нет."""
+    if t.type != "expense":
+        return False
+    if t.debt_payment_id is not None:
+        return True
+    category = data.categories.get(t.category_id)
+    return category is not None and category.type == "expense" and category.name == DEBT_REPAYMENT_CATEGORY
 
 
 def _coverage_limitation(data: _Data) -> list[str]:
@@ -229,7 +250,7 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
     expense = money_sum((Money.of(t.amount_minor, cur) for t in txs if t.type == "expense"), cur)
     net = income - expense
     debt_in = money_sum((Money.of(t.amount_minor, cur) for t in txs if t.debt_payment_id and t.type == "income"), cur)
-    debt_out = money_sum((Money.of(t.amount_minor, cur) for t in txs if t.debt_payment_id and t.type == "expense"), cur)
+    debt_out = money_sum((Money.of(t.amount_minor, cur) for t in txs if _is_debt_repayment(data, t)), cur)
     transfers = [tr for tr in data.transfers if tr.currency == cur]
     transfers_total = money_sum((Money.of(tr.amount_minor, cur) for tr in transfers), cur)
 
@@ -255,6 +276,8 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
         InsightMetricOut(label="Чистый поток", money=_out(net)),
         InsightMetricOut(label="Изменение остатка на активных счетах", money=_out(change)),
     ]
+    if debt_out.minor:
+        metrics.insert(2, InsightMetricOut(label="Расходы на жизнь (без погашений долгов)", money=_out(expense - debt_out)))
     items: list[InsightItemOut] = []
     if transfers:
         items.append(
@@ -265,7 +288,13 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
             )
         )
     if debt_out.minor:
-        items.append(InsightItemOut(label="В расходах: погашение долгов", money=_out(debt_out), note="движение по долгам, а не потребление"))
+        items.append(
+            InsightItemOut(
+                label="В расходах: погашение долгов",
+                money=_out(debt_out),
+                note="входит в денежный поток, но не в расходы на жизнь; повторный ли это учёт покупок — проверить нельзя",
+            )
+        )
     if debt_in.minor:
         items.append(InsightItemOut(label="В доходах: возврат долгов", money=_out(debt_in), note="возврат ранее выданных денег, а не заработок"))
 
@@ -282,6 +311,8 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
     if not data.period.complete:
         limitations.append("Месяц ещё идёт: итоги изменятся.")
     limitations.append("Возврат покупки в приложении записывается как доход: он увеличивает доходы, а не уменьшает расходы.")
+    if debt_out.minor:
+        limitations.append(DEBT_UNCERTAINTY)
     return InsightOut(
         id=f"cash_flow:{cur}",
         type="cash_flow",
@@ -302,7 +333,11 @@ def _cash_flow(data: _Data, cur: str) -> InsightOut:
 
 
 def _spending_structure(data: _Data, cur: str) -> InsightOut | None:
-    expenses = [t for t in data.period_txs if t.currency == cur and t.type == "expense"]
+    all_expenses = [t for t in data.period_txs if t.currency == cur and t.type == "expense"]
+    # Структура — по расходам на жизнь: погашение долга не категория трат,
+    # иначе покупки по кредитке и их погашение заняли бы две доли.
+    expenses = [t for t in all_expenses if not _is_debt_repayment(data, t)]
+    debt_total = money_sum((Money.of(t.amount_minor, cur) for t in all_expenses if _is_debt_repayment(data, t)), cur)
     if not expenses:
         return None
     total = money_sum((Money.of(t.amount_minor, cur) for t in expenses), cur)
@@ -338,6 +373,8 @@ def _spending_structure(data: _Data, cur: str) -> InsightOut | None:
     if len(expenses) < 5:
         limitations.append(f"Всего {len(expenses)} расходных операций — структура может быть случайной.")
     limitations.append("Доли округлены до 0,1%, поэтому их сумма может немного отличаться от 100%.")
+    if debt_total.minor:
+        limitations.append(f"Погашения долгов на {_fmt(debt_total)} в структуру не входят. {DEBT_UNCERTAINTY}")
     return InsightOut(
         id=f"spending_structure:{cur}",
         type="spending_structure",
@@ -347,7 +384,7 @@ def _spending_structure(data: _Data, cur: str) -> InsightOut | None:
         period=data.period.out(),
         currency=cur,
         metrics=[
-            InsightMetricOut(label="Все расходы", money=_out(total)),
+            InsightMetricOut(label="Расходы на жизнь", money=_out(total)),
             InsightMetricOut(label="Расходных операций", count=len(expenses)),
             InsightMetricOut(label="Категорий", count=len(ranked)),
         ],
