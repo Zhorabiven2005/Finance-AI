@@ -18,13 +18,16 @@ from __future__ import annotations
 import enum
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.engine.money import Money
+from app.engine.money import CurrencyMismatchError, Money
 
 __all__ = [
     "GoalStatus",
     "calculate_goal_remaining",
     "calculate_goal_progress",
     "calculate_goal_status",
+    "contribution_for_periods",
+    "periods_for_contribution",
+    "last_contribution",
 ]
 
 
@@ -62,3 +65,41 @@ def calculate_goal_status(saved: Money, target: Money, is_archived: bool) -> Goa
     if target.minor > 0 and saved.minor >= target.minor:
         return GoalStatus.completed
     return GoalStatus.active
+
+
+# --- план накоплений -----------------------------------------------------------
+# Равные взносы без процентов и инфляции. Период (месяц, неделя) выбирает
+# вызывающий код — здесь только целое число взносов.
+
+
+def contribution_for_periods(remaining: Money, periods: int) -> Money:
+    """Равный взнос, чтобы накопить remaining за periods взносов:
+    ⌈остаток / взносов⌉ — вверх до минорной единицы, чтобы цель точно
+    успевала (последний взнос тогда чуть меньше, см. last_contribution)."""
+    if periods <= 0:
+        raise ValueError("Число взносов должно быть положительным")
+    if remaining.minor <= 0:
+        return Money.zero(remaining.currency)
+    return Money.of(-(-remaining.minor // periods), remaining.currency)
+
+
+def periods_for_contribution(remaining: Money, contribution: Money) -> int:
+    """Сколько взносов размера contribution нужно, чтобы накопить remaining
+    (⌈остаток / взнос⌉). Нулевой или отрицательный взнос никогда не приведёт
+    к цели — срок не определён, поэтому ValueError, а не «бесконечность».
+    Разные валюты не сравниваются: курсов в приложении нет."""
+    if contribution.currency != remaining.currency:
+        raise CurrencyMismatchError(remaining.currency, contribution.currency)
+    if contribution.minor <= 0:
+        raise ValueError("Взнос должен быть положительным")
+    if remaining.minor <= 0:
+        return 0
+    return -(-remaining.minor // contribution.minor)
+
+
+def last_contribution(remaining: Money, contribution: Money, periods: int) -> Money:
+    """Последний взнос плана: всё, что осталось после periods − 1 полных
+    взносов (не больше обычного взноса)."""
+    if periods <= 0:
+        return Money.zero(remaining.currency)
+    return remaining - contribution * (periods - 1)

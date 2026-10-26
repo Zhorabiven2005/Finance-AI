@@ -370,12 +370,17 @@ def _section_forecast(d: AssistantDigest) -> list[str]:
 def _section_goals(d: AssistantDigest) -> list[str]:
     lines = []
     for g in d.goals:
-        plan = (
-            f"до срока {g.target_date.isoformat()} осталось {g.months_left} мес.; чтобы успеть, нужно откладывать "
-            f"{g.required_monthly.display} в месяц"
-            if g.required_monthly is not None and g.target_date is not None
-            else f"план взносов не рассчитан ({_reason(g.plan_null_reason)})"
-        )
+        if g.required_monthly is not None and g.target_date is not None:
+            plan = (
+                f"до срока {g.target_date.isoformat()} осталось {g.months_left} мес.; чтобы успеть, нужно откладывать "
+                f"{g.required_monthly.display} в месяц"
+            )
+        elif g.plan_null_reason == "no_target_date":
+            # План не «не рассчитан», а зависит от срока или взноса, которые
+            # назовёт пользователь: их считает goal_planner по вопросу.
+            plan = "срок цели не задан: ежемесячный взнос зависит от срока или суммы взноса, которые назовёт пользователь"
+        else:
+            plan = _reason(g.plan_null_reason)
         lines.append(
             f"- Цель {label(g.label)} ({GOAL_STATUS_TEXT[g.status]}): накоплено {g.saved.display} из {g.target.display} "
             f"({pct(g.progress_percent)}), осталось накопить {g.remaining.display}; {plan}."

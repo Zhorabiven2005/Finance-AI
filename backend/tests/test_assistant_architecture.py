@@ -54,11 +54,22 @@ def test_preview_endpoint_uses_readonly_session_only():
     assert not re.search(FORBIDDEN["прямой доступ к SQLite"], code)
 
 
-def test_no_chat_or_generation_in_stage_3a():
-    # Модель в Stage 3A не вызывается: только /api/version и /api/tags.
-    code = "\n".join(strip_docs(c) for c in sources().values()) + strip_docs(API_SOURCE.read_text(encoding="utf-8"))
-    for endpoint in ("/api/chat", "/api/generate", "/v1/chat/completions", "/api/pull", "/api/delete"):
-        assert endpoint not in code, endpoint
+def test_only_chat_generation_is_called_and_no_model_management():
+    # Генерация — только /api/chat и только из модуля generation.py. Управлять
+    # моделями (загружать, удалять, создавать) помощник не может.
+    all_code = {name: strip_docs(code) for name, code in sources().items()}
+    all_code["api/v1/assistant.py"] = strip_docs(API_SOURCE.read_text(encoding="utf-8"))
+    for name, code in all_code.items():
+        for endpoint in ("/api/generate", "/v1/chat/completions", "/api/pull", "/api/delete", "/api/create", "/api/push", "/api/copy"):
+            assert endpoint not in code, (name, endpoint)
+        if name != "generation.py":
+            assert "/api/chat" not in code, name
+
+
+def test_model_gets_no_tools():
+    code = strip_docs((APP / "assistant" / "generation.py").read_text(encoding="utf-8"))
+    assert '"tools"' not in code and "'tools'" not in code
+    assert '"think": False' in code
 
 
 @pytest.mark.parametrize("module", ["app.assistant.ollama", "app.assistant.digest", "app.api.v1.assistant", "app.config"])

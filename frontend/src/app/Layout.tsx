@@ -10,6 +10,7 @@ import {
   Repeat,
   Target,
   DatabaseBackup,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,6 +22,7 @@ const NAV_ITEMS: { to: string; label: string; end?: boolean; icon: LucideIcon }[
   { to: "/accounts", label: "Счета", icon: Landmark },
   { to: "/transactions", label: "Операции", icon: ArrowLeftRight },
   { to: "/analytics", label: "Аналитика", icon: ChartColumn },
+  { to: "/assistant", label: "Помощник", icon: Sparkles },
   { to: "/budgets", label: "Бюджеты", icon: PiggyBank },
   { to: "/goals", label: "Цели", icon: Target },
   { to: "/recurring", label: "Регулярные", icon: Repeat },

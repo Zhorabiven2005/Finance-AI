@@ -185,6 +185,18 @@ class AssistantDigest(ContextModel):
     truncated_lists: list[str]
 
 
+class ChatMessageIn(ContextModel):
+    """Реплика диалога из браузера. Роли system нет — правила задаёт только
+    backend. Длина проверяется в API по настройкам ASSISTANT_*."""
+
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(ContextModel):
+    messages: list[ChatMessageIn]
+
+
 class AssistantContextPreviewOut(ContextModel):
     """Ровно то, что в Stage 3B получит модель: структура и её текст."""
 

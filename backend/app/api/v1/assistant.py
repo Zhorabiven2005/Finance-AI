@@ -15,11 +15,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import clock
 from app.assistant import digest as digest_module
+from app.assistant import goal_planner
+from app.assistant.chat import ChatLimits, ChatValidationError, stream_events, validate_dialogue
+from app.assistant.generation import ChatStream
+from app.assistant.prompts import build_messages
 from app.api.v1.context import DEFAULT_MONTHS, DEFAULT_UPCOMING_DAYS
 from app.assistant.ollama import OllamaClient, OllamaStatus
 from app.config import settings
@@ -30,6 +35,7 @@ from app.schemas.assistant import (
     AssistantModelOut,
     AssistantServerOut,
     AssistantStatusOut,
+    ChatRequest,
 )
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
@@ -90,6 +96,18 @@ def assistant_context_preview(
     upcoming_days: Annotated[int, Query(ge=1, le=90)] = DEFAULT_UPCOMING_DAYS,
     db: Session = Depends(get_readonly_db),
 ) -> AssistantContextPreviewOut:
+    digest, text, tokens, omitted = _digest_text(db, months, upcoming_days)
+    return AssistantContextPreviewOut(
+        digest=digest,
+        text=text,
+        estimated_tokens=tokens,
+        token_budget=settings.assistant_digest_token_budget,
+        omitted_sections=omitted,
+    )
+
+
+def _digest_text(db: Session, months: int, upcoming_days: int):
+    """Сводка Stage 3A из read-only контекста — одна и та же для чата и предпросмотра."""
     ctx = context_builder.build_context(
         db,
         months=months,
@@ -99,8 +117,58 @@ def assistant_context_preview(
         now=datetime.now(timezone.utc),
     )
     digest = digest_module.build_digest(ctx)
-    budget = settings.assistant_digest_token_budget
-    text, tokens, omitted = digest_module.render_digest_text(digest, budget)
-    return AssistantContextPreviewOut(
-        digest=digest, text=text, estimated_tokens=tokens, token_budget=budget, omitted_sections=omitted
+    text, tokens, omitted = digest_module.render_digest_text(digest, settings.assistant_digest_token_budget)
+    return digest, text, tokens, omitted
+
+
+@router.post("/chat")
+def assistant_chat(
+    payload: ChatRequest,
+    db: Session = Depends(get_readonly_db),
+    client: OllamaClient = Depends(get_ollama_client),
+) -> StreamingResponse:
+    """Потоковый ответ локальной модели (NDJSON). Ничего не сохраняется."""
+    if not settings.assistant_enabled:
+        raise HTTPException(status_code=503, detail=STATE_MESSAGES["disabled"])
+    limits = ChatLimits(
+        max_question_chars=settings.assistant_max_question_chars,
+        max_history_messages=settings.assistant_max_history_messages,
+        max_history_message_chars=settings.assistant_max_history_message_chars,
     )
+    try:
+        dialogue = validate_dialogue(payload.messages, limits)
+    except ChatValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    # Сводка строится до начала потока: дальше поток не обращается к БД.
+    digest, text, tokens, omitted = _digest_text(db, DEFAULT_MONTHS, DEFAULT_UPCOMING_DAYS)
+    # Вопрос о цели: срок или взнос называет пользователь, поэтому план
+    # считается здесь, по диалогу, и идёт в данные первым разделом.
+    calculation = goal_planner.plan_for_dialogue(dialogue, digest.goals, digest.meta.today)
+    if calculation is not None:
+        text = f"{goal_planner.render(calculation, digest.meta.today)}\n\n{text}"
+    stream = ChatStream(
+        client,
+        model=settings.assistant_model,
+        messages=build_messages(text, dialogue),
+        max_output_tokens=settings.assistant_max_output_tokens,
+        context_window_tokens=settings.assistant_context_window_tokens,
+        max_output_chars=settings.assistant_max_output_chars,
+        chunk_timeout=settings.assistant_chunk_timeout_seconds,
+        total_timeout=settings.assistant_total_timeout_seconds,
+    )
+    meta = {
+        "context_generated_at": digest.meta.generated_at.isoformat(),
+        "digest_tokens": tokens,
+        "omitted_sections": omitted,
+        "goal_calculation": calculation.as_dict() if calculation is not None else None,
+    }
+    # Числа ответа сверяются только с тем, что дало приложение и написал
+    # пользователь; прошлые ответы модели источником не считаются.
+    sources = [text] + [m["content"] for m in dialogue if m["role"] == "user"]
+    return StreamingResponse(
+        stream_events(stream, model=settings.assistant_model, meta=meta, grounding_sources=sources),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+

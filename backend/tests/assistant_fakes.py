@@ -51,14 +51,42 @@ def healthy_routes(models: list[dict] | None = None) -> dict[str, Route]:
 
 
 @dataclass
+class StreamRoute:
+    """Потоковый ответ: куски байтов с паузой между ними (куски можно рвать
+    посреди JSON-строки — так клиент проверяется на частичные чанки)."""
+
+    chunks: list[bytes]
+    delay: float = 0.0
+    status: int = 200
+
+
+def ndjson(*events) -> list[bytes]:
+    return [(json.dumps(e, ensure_ascii=False) + "\n").encode("utf-8") for e in events]
+
+
+def chat_chunks(*texts: str, done_reason: str = "stop", thinking: list[str] | None = None) -> list[bytes]:
+    events = [{"model": MODEL, "message": {"role": "assistant", "content": "", "thinking": t}, "done": False} for t in (thinking or [])]
+    events += [{"model": MODEL, "message": {"role": "assistant", "content": t}, "done": False} for t in texts]
+    events.append(
+        {"model": MODEL, "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": done_reason,
+         "prompt_eval_count": 900, "eval_count": 42}
+    )
+    return ndjson(*events)
+
+
+@dataclass
 class FakeOllama:
     url: str
-    routes: dict[str, Route]
+    routes: dict
     requests: list[tuple[str, str, bytes]] = field(default_factory=list)
+    disconnected: threading.Event = field(default_factory=threading.Event)
+
+    def chat_bodies(self) -> list[dict]:
+        return [json.loads(body) for method, path, body in self.requests if path == "/api/chat"]
 
 
 @contextmanager
-def fake_ollama(routes: dict[str, Route]) -> Iterator[FakeOllama]:
+def fake_ollama(routes: dict) -> Iterator[FakeOllama]:
     state = FakeOllama(url="", routes=routes)
 
     class Handler(BaseHTTPRequestHandler):
@@ -70,6 +98,26 @@ def fake_ollama(routes: dict[str, Route]) -> Iterator[FakeOllama]:
             if route is None:
                 self.send_response(404)
                 self.end_headers()
+                return
+            if isinstance(route, StreamRoute):
+                self.send_response(route.status)
+                self.send_header("Content-Type", "application/x-ndjson")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                try:
+                    for chunk in route.chunks:
+                        if route.delay:
+                            time.sleep(route.delay)
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                    # Клиент закрыл соединение раньше конца потока?
+                    if route.delay:
+                        time.sleep(route.delay)
+                        self.wfile.write(b"\n")
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                    state.disconnected.set()
+                self.close_connection = True
                 return
             if route.delay:
                 time.sleep(route.delay)

@@ -42,7 +42,7 @@ AssistantState = Literal[
 class OllamaError(Exception):
     """Сервер недоступен или ответил не так, как ответил бы Ollama."""
 
-    def __init__(self, state: AssistantState, detail: str) -> None:
+    def __init__(self, state: str, detail: str) -> None:
         super().__init__(detail)
         self.state = state
 
@@ -111,7 +111,7 @@ class OllamaClient:
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise OllamaError("server_bad_response", f"ответ на {path} — не JSON") from None
 
-    def _probe_tcp(self) -> None:
+    def probe(self) -> None:
         """Отдельная проверка подключения. На Windows отказ в подключении к
         закрытому локальному порту приходит только через ~2 с повторных
         попыток, и без этой проверки «Ollama не запущен» выглядел бы как
@@ -157,7 +157,7 @@ class OllamaClient:
 
     def check(self, model_name: str) -> OllamaStatus:
         try:
-            self._probe_tcp()
+            self.probe()
             version = self.server_version()
             models = self.list_models()
         except OllamaError as exc:

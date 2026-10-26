@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     assistant_status_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
     # Бюджет текстовой сводки для промпта (оценка: ~3 символа на токен).
     assistant_digest_token_budget: int = Field(default=2500, ge=500, le=16000)
+    # --- чат (Stage 3B) ---
+    assistant_max_question_chars: int = Field(default=1000, ge=50, le=8000)
+    assistant_max_history_messages: int = Field(default=8, ge=1, le=40)
+    assistant_max_history_message_chars: int = Field(default=6000, ge=100, le=20000)
+    assistant_max_output_tokens: int = Field(default=700, ge=50, le=4000)
+    assistant_max_output_chars: int = Field(default=6000, ge=200, le=40000)
+    assistant_context_window_tokens: int = Field(default=8192, ge=2048, le=131072)
+    # Ожидание очередного куска ответа (включая загрузку модели и разбор промпта)
+    # и общий предел на один ответ.
+    assistant_chunk_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
+    assistant_total_timeout_seconds: float = Field(default=300.0, gt=0, le=1800)
 
     # --- CORS ---------------------------------------------------------
     # Хранится строкой: pydantic-settings пытается разобрать list как JSON,

@@ -41,6 +41,23 @@ vi.mock("@/lib/api/dashboard", () => ({
     }),
   },
 }));
+vi.mock("@/lib/api/insights", () => ({
+  insightsApi: {
+    get: async () => ({
+      generated_at: "2026-10-25T00:00:00Z",
+      today: "2026-10-25",
+      period: { key: "current_month", date_from: "2026-10-01", date_to: "2026-10-31", label: "октябрь 2026", complete: false },
+      currencies: [],
+      insights: [],
+      unavailable: [],
+    }),
+  },
+  streamInsightExplanation: async () => undefined,
+}));
+vi.mock("@/lib/api/assistant", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/assistant")>()),
+  assistantApi: { status: async () => ({ ready: false }) },
+}));
 vi.mock("@/lib/api/budgets", () => ({ budgetsApi: { list: async () => state.budgets } }));
 vi.mock("@/lib/api/goals", () => ({ goalsApi: { list: async () => state.goals } }));
 vi.mock("@/lib/api/analytics", () => ({

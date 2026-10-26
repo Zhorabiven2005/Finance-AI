@@ -14,6 +14,7 @@ from app.api.v1 import (
     debts,
     goals,
     health,
+    insights,
     notifications,
     recurring_transactions,
     settings,
@@ -38,5 +39,6 @@ api_router.include_router(data_transfer.router)
 api_router.include_router(notifications.router)
 api_router.include_router(context.router)
 api_router.include_router(assistant.router)
+api_router.include_router(insights.router)
 
 __all__ = ["api_router"]
